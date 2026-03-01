@@ -5,25 +5,89 @@
 ![SQL Server](https://img.shields.io/badge/SQL_Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
 ![Clean Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-blue?style=for-the-badge)
 
-## Sobre el Proyecto
-Esta es una API RESTful diseñada para la gestión de pólizas de seguros y evaluación de riesgos. El objetivo principal de este repositorio es demostrar la implementación de patrones de diseño de nivel empresarial y código limpio.
+API REST en **ASP.NET Core 8** para **gestión financiera personal** (base técnica). Enfocada a demostrar una estructura mantenible con **Clean Architecture**, persistencia en **SQL Server (LocalDB / SQL Express)** y documentación con **Swagger**.
 
-## Arquitectura y Patrones (En Desarrollo)
-Este sistema está siendo construido siguiendo los principios de **Clean Architecture** y **Domain-Driven Design (DDD)** para asegurar un alto desacoplamiento y escalabilidad:
+> Nota: actualmente **no hay demo online**. El proyecto se ejecuta en local con SQL Server Express/LocalDB.
 
-* **Domain Layer:** Entidades de negocio centrales (Pólizas, Clientes, Scorings).
-* **Application Layer:** Casos de uso e interfaces (CQRS pattern).
-* **Infrastructure Layer:** Persistencia de datos mediante Entity Framework Core y SQL Server.
-* **Presentation Layer:** Controladores API expuestos y documentados mediante Swagger.
+---
 
-## Tecnologías Principales
-* **Framework:** ASP.NET Core 8 Web API
-* **Base de Datos:** Microsoft SQL Server (T-SQL)
-* **Testing:** Postman para validación de endpoints e integridad de datos.
-* **Control de Versiones:** Git & GitHub Workflow.
+## Qué incluye
+- API en .NET 8 con estructura por capas (Clean Architecture).
+- Persistencia con **Entity Framework Core** y **SQL Server**.
+- Swagger/OpenAPI para probar endpoints.
+- Configuración para ejecutar en local.
+
+## Objetivo del repositorio
+Este repositorio está orientado a mostrar:
+- organización del código (separación Domain / Application / Infrastructure / Presentation),
+- patrones base para escalar el proyecto,
+- integración limpia con base de datos SQL Server.
+
+## Arquitectura
+- **Domain:** entidades y reglas de negocio (finanzas).
+- **Application:** casos de uso y contratos (interfaces/DTOs).
+- **Infrastructure:** EF Core + SQL Server (repositorios/implementaciones).
+- **Presentation:** API Controllers + Swagger.
+
+> Algunas piezas (por ejemplo CQRS completo, autenticación, tests automatizados) se irán añadiendo progresivamente.
+
+---
+
+## Requisitos
+- **.NET SDK 8**
+- **SQL Server Express / LocalDB** (o SQL Server normal)
+- (Opcional) **Visual Studio 2022** o VS Code
+
+---
+
+## Cómo ejecutar en local
+## 1)Clona el repositorio
+
+git clone https://github.com/Nain9Dev/API-Gestion-Financiera.git
+
+cd API-Gestion-Financiera
+
+## 2)Configura la conexión a SQL Server
+Edita appsettings.json (o appsettings.Development.json) con tu connection string.
+
+Ejemplo (SQL Server Express):
+
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=GestionFinancieraDb;Trusted_Connection=True;TrustServerCertificate=True;"
+  }
+}
+
+## 3)Aplica migraciones
+
+dotnet ef database update
+
+## 4)Ejecuta la API
+
+dotnet run
+
+## 5)Abre Swagger
+Normalmente:
+
+https://localhost:<puerto>/swagger
+
+Roadmap (en desarrollo)
+
+Endpoints completos de dominio financiero (categorías, ingresos, gastos, presupuestos).
+
+Autenticación (JWT) y autorización.
+
+Validaciones y manejo de errores consistente.
+
+Tests (unitarios e integración).
+
+Docker Compose (API + SQL Server).
 
 ## Autor
-**Aitor Nain Mendoza Vallejo**
-* Desarrollador Backend .NET | Estudiante de Ingeniería Informática
-* Contacto: contact@naindev.com
-* Portfolio: [www.naindev.com](https://www.naindev.com)
+
+Aitor Nain Mendoza Vallejo
+
+Desarrollador Backend .NET | Estudiante de Ingeniería Informática
+
+Contacto: contact@naindev.com
+Portfolio: https://www.naindev.com

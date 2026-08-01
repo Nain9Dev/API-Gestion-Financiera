@@ -1,0 +1,90 @@
+@host = https://localhost:7024
+@token = PASTE_LOCAL_DEVELOPMENT_TOKEN
+@policyId = PASTE_POLICY_ID
+@etag = PASTE_QUOTED_ETAG
+
+### Process liveness - anonymous
+GET {{host}}/health
+
+###
+
+### List organization policies
+GET {{host}}/api/v1/policies?pageNumber=1&pageSize=20
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Get policy and copy its ETag response header
+GET {{host}}/api/v1/policies/{{policyId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Create Draft policy - synthetic data only
+POST {{host}}/api/v1/policies
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "policyNumber": "SYNTH-2026-0001",
+  "insuredAmount": 125000.00,
+  "currency": "EUR"
+}
+
+###
+
+### Activate Draft policy - copy the latest quoted ETag into @etag
+POST {{host}}/api/v1/policies/{{policyId}}/activate
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+If-Match: {{etag}}
+
+{
+  "insuredPartyReference": "SYNTH-INSURED-0001",
+  "coverageStartDate": "2026-09-01",
+  "coverageEndDate": "2027-08-31"
+}
+
+###
+
+### Cancel Draft or Active policy - use the newest ETag
+POST {{host}}/api/v1/policies/{{policyId}}/cancel
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+If-Match: {{etag}}
+
+{
+  "reason": "Synthetic customer request"
+}
+
+###
+
+### View append-only transition history
+GET {{host}}/api/v1/policies/{{policyId}}/transitions
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Authentication example - expected 401 Unauthorized
+GET {{host}}/api/v1/policies
+Accept: application/json
+
+###
+
+### Validation example - expected 400 Bad Request
+POST {{host}}/api/v1/policies
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "policyNumber": "SYNTH-2026-INVALID",
+  "insuredAmount": 0,
+  "currency": "EUR"
+}

@@ -1,93 +1,121 @@
-# API de Gestión Financiera (Financial Management API)
+# Insurance Policy Operations API
 
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet)
-![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white)
-![SQL Server](https://img.shields.io/badge/SQL_Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
-![Clean Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-blue?style=for-the-badge)
+Este repositorio empezó como un CRUD pequeño y lo he convertido en una demo backend que se puede recorrer de principio a fin. La API gestiona el ciclo de una póliza, separa los datos de cada organización y deja un historial auditable en SQL Server.
 
-API REST en **ASP.NET Core 8** para **gestión financiera personal** (base técnica). Enfocada a demostrar una estructura mantenible con **Clean Architecture**, persistencia en **SQL Server (LocalDB / SQL Express)** y documentación con **Swagger**.
+El objetivo no es aparentar que ya existe un SaaS terminado. Es enseñar, con código y pruebas que se pueden ejecutar, cómo trabajo con .NET, C#, diseño de APIs, reglas de negocio y persistencia relacional.
 
-> Nota: actualmente **no hay demo online**. El proyecto se ejecuta en local con SQL Server Express/LocalDB.
+> Estado: **demo técnica local preparada y verificada con datos sintéticos**. No está desplegada públicamente ni autorizada para clientes o datos personales reales.
 
----
+## Capacidades implementadas
 
-## Qué incluye
-- API en .NET 8 con estructura por capas (Clean Architecture).
-- Persistencia con **Entity Framework Core** y **SQL Server**.
-- Swagger/OpenAPI para probar endpoints.
-- Configuración para ejecutar en local.
-
-## Objetivo del repositorio
-Este repositorio está orientado a mostrar:
-- organización del código (separación Domain / Application / Infrastructure / Presentation),
-- patrones base para escalar el proyecto,
-- integración limpia con base de datos SQL Server.
+- Monolito modular: Domain, Application, Infrastructure y API.
+- Creación de pólizas en estado `Draft` con importe y moneda ISO 4217.
+- Ciclo `Draft -> Active -> Cancelled`, incluida cancelación directa de Draft.
+- Datos mínimos de activación: referencia opaca del asegurado y periodo de cobertura.
+- JWT Bearer, roles `PolicyReader` y `PolicyOperator`.
+- Organización derivada del claim confiable `organization_id`.
+- Lecturas y unicidad de `PolicyNumber` aisladas por organización.
+- SQL Server `rowversion`, ETag e `If-Match` para evitar escrituras obsoletas.
+- Historial de transiciones con actor, UTC, correlación y motivo.
+- Problem Details seguro con stable error codes.
+- EF Core 10 y migrations que se niegan a inventar ownership o moneda para datos antiguos.
+- Swagger visual, colección `.http` y endpoint de salud del proceso.
+- Tests de dominio, API, autorización, aislamiento y migrations contra SQL Server 2025 real.
 
 ## Arquitectura
-- **Domain:** entidades y reglas de negocio (finanzas).
-- **Application:** casos de uso y contratos (interfaces/DTOs).
-- **Infrastructure:** EF Core + SQL Server (repositorios/implementaciones).
-- **Presentation:** API Controllers + Swagger.
 
-> Algunas piezas (por ejemplo CQRS completo, autenticación, tests automatizados) se irán añadiendo progresivamente.
+```text
+HTTP + JWT
+  -> PolicyOperations.Api
+      -> PolicyOperations.Application
+          -> PolicyOperations.Domain
+      -> PolicyOperations.Infrastructure
+          -> EF Core 10
+              -> SQL Server
+```
 
----
+La API es el composition root. Application define casos de uso y puertos concretos; Infrastructure implementa persistencia; Domain no depende de ASP.NET Core ni EF Core.
 
-## Requisitos
-- **.NET SDK 8**
-- **SQL Server Express / LocalDB** (o SQL Server normal)
-- (Opcional) **Visual Studio 2022** o VS Code
+## Endpoints
 
----
+| Método | Ruta | Autorización | Comportamiento |
+|---|---|---|---|
+| `GET` | `/health` | Anonymous | Liveness del proceso; no comprueba SQL Server |
+| `POST` | `/api/v1/policies` | `PolicyOperator` | Crea una póliza `Draft` |
+| `GET` | `/api/v1/policies/{policyId}` | Reader u Operator | Recupera una póliza de la organización |
+| `GET` | `/api/v1/policies` | Reader u Operator | Lista paginada, máximo 100 elementos |
+| `POST` | `/api/v1/policies/{policyId}/activate` | `PolicyOperator` + `If-Match` | Activa un Draft completo |
+| `POST` | `/api/v1/policies/{policyId}/cancel` | `PolicyOperator` + `If-Match` | Cancela un Draft o Active |
+| `GET` | `/api/v1/policies/{policyId}/transitions` | Reader u Operator | Muestra el historial de estados |
 
-## Cómo ejecutar en local
-## 1)Clona el repositorio
+## Demo visual local
 
-git clone https://github.com/Nain9Dev/API-Gestion-Financiera.git
+La guía completa está en [docs/local-demo.md](docs/local-demo.md). Resumen:
 
-cd API-Gestion-Financiera
+```powershell
+$env:ConnectionStrings__DefaultConnection = "Server=.\NAINCONFIGURATOR;Database=PolicyOperationsLocalDemo;Integrated Security=True;TrustServerCertificate=True;Encrypt=False"
+$env:POLICY_OPERATIONS_MIGRATIONS_SQLSERVER = $env:ConnectionStrings__DefaultConnection
 
-## 2)Configura la conexión a SQL Server
-Edita appsettings.json (o appsettings.Development.json) con tu connection string.
+dotnet tool restore
+dotnet restore .\GestionFinanciera\GestionFinanciera.sln
+dotnet tool run dotnet-ef database update --project .\GestionFinanciera\PolicyOperations.Infrastructure --startup-project .\GestionFinanciera\PolicyOperations.Infrastructure --configuration Release
 
-Ejemplo (SQL Server Express):
+dotnet user-jwts create --project .\GestionFinanciera\PolicyOperations.Api\PolicyOperations.Api.csproj --name demo-operator --role PolicyOperator --role PolicyReader --claim organization_id=11111111-1111-1111-1111-111111111111 --valid-for 8h
 
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=GestionFinancieraDb;Trusted_Connection=True;TrustServerCertificate=True;"
-  }
-}
+dotnet run --project .\GestionFinanciera\PolicyOperations.Api --configuration Release --launch-profile https
+```
 
-## 3)Aplica migraciones
+Abre [https://localhost:7024/swagger](https://localhost:7024/swagger) o [http://localhost:5047/swagger](http://localhost:5047/swagger), selecciona **Authorize** y pega el token local.
 
-dotnet ef database update
+En `If-Match`, copia el ETag completo tal como aparece en la cabecera de respuesta, incluidas las comillas: `"AAAAAAAAAAE="`. Pegar solo `AAAAAAAAAAE=` no representa un ETag HTTP válido y la API responderá con `etag_invalid`.
 
-## 4)Ejecuta la API
+La base `PolicyOperationsLocalDemo` fue creada y migrada en el equipo verificado el 2026-08-02. Contiene exclusivamente evidencia sintética del smoke test local.
 
-dotnet run
+Requests alternativas: [PolicyOperations.Api.http](GestionFinanciera/PolicyOperations.Api/PolicyOperations.Api.http).
 
-## 5)Abre Swagger
-Normalmente:
+## Quality gate verificado
 
-https://localhost:<puerto>/swagger
+- Build Release: 0 warnings y 0 errores.
+- 22 tests de dominio.
+- 14 tests de API/autorización/organización y contrato OpenAPI.
+- 4 tests de migrations y recuperación segura.
+- 40 tests totales contra el código actual; 18 utilizan SQL Server real.
+- EF Core sin cambios de modelo pendientes de migration.
+- Auditoría NuGet sin vulnerabilidades conocidas en paquetes directos o transitivos.
+- Smoke test real: `Draft -> Active -> Cancelled`, dos transiciones persistidas mediante JWT local.
 
-Roadmap (en desarrollo)
+## Límites actuales
 
-Endpoints completos de dominio financiero (categorías, ingresos, gastos, presupuestos).
+- El JWT de `dotnet user-jwts` es exclusivamente para desarrollo local.
+- Un piloto requiere un issuer OpenID Connect aprobado y configuración operativa.
+- No existe administración de organizaciones, invitaciones o usuarios.
+- No se han implementado retención/export del audit trail, backups probados ni alertas.
+- No existe evaluación de riesgo, billing, integraciones ni multi-región.
+- No se permiten datos personales reales ni exposición de los puertos locales a internet.
+- La capacidad objetivo todavía no tiene un load test reproducible.
 
-Autenticación (JWT) y autorización.
+## Coste y licencia
 
-Validaciones y manejo de errores consistente.
+La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. El coste incremental autorizado es 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
 
-Tests (unitarios e integración).
+SQL Server Standard Developer es gratuito para desarrollo/pruebas, pero no está licenciado para producción. Producción requerirá una decisión explícita sobre base de datos, hosting, backups, restauración, privacidad y soporte.
 
-Docker Compose (API + SQL Server).
+## Documentación
+
+- [Mapa y autoridad](docs/README.md)
+- [Contexto y estado](docs/project-context.md)
+- [Reglas de negocio y contratos](docs/business-rules.md)
+- [Arquitectura](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
+- [Demo local](docs/local-demo.md)
+- [Economic brief](docs/economic-brief.md)
+- [ADR-001: product direction](docs/decisions/ADR-001-product-direction.md)
+- [ADR-002: runtime and architecture](docs/decisions/ADR-002-runtime-and-architecture.md)
+- [ADR-003: lifecycle and security](docs/decisions/ADR-003-lifecycle-security-and-organization-boundary.md)
+- [ADR-004: repository license](docs/decisions/ADR-004-repository-license.md)
 
 ## Autor
 
-Aitor Nain Mendoza Vallejo
+Aitor Nain Mendoza Vallejo — Backend .NET Developer
 
-Desarrollador Backend .NET | Estudiante de Ingeniería Informática
-
-Contacto: contact@naindev.com
-Portfolio: https://www.naindev.com
+[naindev.com](https://www.naindev.com/) · contact@naindev.com

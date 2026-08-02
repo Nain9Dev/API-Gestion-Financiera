@@ -1,6 +1,6 @@
 # Project context
 
-- Document version: 0.5
+- Document version: 0.6
 - Status: Active
 - Date: 2026-08-02
 - Scope: Product, authority, readiness, boundaries and blockers
@@ -18,7 +18,7 @@
 | Lifecycle/security | Organization-scoped JWT, ETag and audit | Approved in ADR-003 and implemented |
 | Repository license | MIT | Approved in ADR-004 and added |
 | Public demo boundary and hosting target | One-click synthetic façade; Azure F1 + Azure SQL Free | Approved in ADR-005 |
-| Current milestone | Public demo prepared locally | Passed locally; Azure blocked |
+| Current milestone | Public portfolio demo | Live and verified over HTTPS |
 | Incremental cash budget | 0 EUR before commercial evidence | Approved constraint |
 | Owner-hours cap | 40 additional hours from 2026-08-02 | Approved guardrail |
 | Data boundary | Synthetic data only | Approved |
@@ -39,8 +39,8 @@ The customer hypothesis remains a small insurance brokerage or insurtech operati
 | Implementation ready | Passed | API, persistence, migration, authorization and test contracts defined | None for implemented scope |
 | First create/get/list slice | Passed | .NET 10 and real SQL tests | Preserve regression gate |
 | Local technical demo | Passed | JWT smoke, lifecycle, concurrency and audit verified with synthetic data | Preserve regression gate |
-| One-click public-demo implementation | Passed locally | Browser run and SQL integration tests | Deploy only after an active zero-cost Azure subscription exists |
-| Portfolio publication evidence | In progress | README, CI and executable page prepared | Add the observed live URL only after deployment smoke |
+| One-click public-demo implementation | Passed | Live five-step run against Azure SQL Free | Preserve the zero-cost and synthetic-data boundary |
+| Portfolio publication evidence | Passed | Public HTTPS page, readiness and observed result | Keep the link monitored and claims evidence-based |
 | Commercial validation | Ready but not started | 40-hour guardrail approved; no market evidence | Conduct bounded interviews separately |
 | Customer pilot | Not authorized | No external issuer, privacy, operations, hosting or contract evidence | Pass commercial and operational gates |
 
@@ -60,6 +60,8 @@ The customer hypothesis remains a small insurance brokerage or insurtech operati
 - provide Swagger and `.http` local demo clients;
 - provide a one-click synthetic demo page and anonymous fixed scenario, disabled by default;
 - limit public-demo runs, prune only expired demo-organization data and expose SQL readiness separately;
+- retry transient SQL Serverless failures while keeping cleanup deletes in one retryable transaction;
+- run the public demo on App Service F1 and Azure SQL Free with HTTPS and an exhaustion cutoff;
 - verify behavior against SQL Server 2025 Standard Developer.
 
 The pre-1.0 `/api/policies` prototype was intentionally replaced by `/api/v1/policies` before known external consumers existed.
@@ -74,7 +76,7 @@ The pre-1.0 `/api/policies` prototype was intentionally replaced by `/api/v1/pol
 - audit retention, export, legal hold or administrator search;
 - generic idempotency keys or automatic state-changing retries;
 - risk assessment, billing, integrations, documents, messaging or distributed services;
-- customer hosting, backup, restore, alerting and support procedures.
+- customer hosting, backup, restore, alerting and support procedures. The free demo has only a quota warning, not customer operations.
 
 These are not defects in the local technical demo. They remain separate decisions or later gates.
 
@@ -101,24 +103,28 @@ These are not defects in the local technical demo. They remain separate decision
 | API description | Swashbuckle 10.2.3 | MIT |
 | Tests | xUnit and Microsoft test platform | Apache-2.0/MIT packages |
 | Repository | MIT License | Commercial reuse permitted under license terms |
-| Public demo compute | Azure App Service F1 | Approved target; free quota, no SLA, not provisioned |
-| Public demo database | Azure SQL Database free offer | Approved target; stop at free limit, not provisioned |
+| Public demo compute | Azure App Service F1 in France Central | Provisioned as Linux F1 Free; no SLA and cold starts allowed |
+| Public demo database | Azure SQL Database free offer in France Central | `useFreeLimit=true`, `AutoPause`, 32 GB, LRS, no paid overage |
+| Demo warning | Azure Monitor metric alert | Email at 1,000 vCore-seconds remaining; one active metric rule |
 
-No paid service, credit card or automatic conversion to metered usage is authorized. Azure Portal currently shows no active subscription for the personal account and a disabled Azure for Students subscription for the university account.
+No paid service or automatic conversion to metered usage is authorized. The deployed SQL database cannot continue as paid overage. The preventive alert does not stop the database; `AutoPause` is the authoritative cutoff when the free monthly allowance is exhausted.
 
 ## 8. Current verification
 
-- Release build: 0 warnings, 0 errors.
-- Domain tests: 22 passed.
-- SQL Server API/security/OpenAPI tests: 17 passed.
-- SQL Server migration tests: 4 passed.
-- Total: 43 passed; 21 use real SQL Server.
+- Release build for version 0.6: 0 warnings, 0 errors.
+- Domain tests for version 0.6: 22 passed.
+- The 17 API and 4 migration tests passed against real SQL Server on version 0.5. Their version 0.6 rerun was blocked before test logic because the local SQL instance rejected Windows authentication with an SSPI error.
+- The changed retry and cleanup path was exercised by the live Azure run: five successful expected steps, final `Cancelled` policy and two transitions.
 - Legacy active/cancelled rows and timestamps remain preserved by the lifecycle migration.
 - Duplicate legacy normalization stops before schema replacement.
 - Existing rows stop the organization/currency migration with SQL error `51003`.
 - Down migration with policy data stops with SQL error `51004`.
 - Real local JWT smoke observed `Draft -> Active -> Cancelled` and two transition rows.
 - Browser-observed one-click run returned `201`, `200`, `412`, `200`, `200` and two audit rows.
+- Public HTTPS liveness, SQL readiness and demo page returned `200` on 2026-08-02.
+- Azure SQL was read back as General Purpose Serverless with the free offer and `AutoPause` exhaustion behavior.
+- App Service was read back as Linux `F1` / `Free`, .NET 10, HTTPS-only and TLS 1.2.
+- The quota alert was read back as enabled on `free_amount_remaining <= 1000` every 15 minutes. Azure Free rejected only the manual test-notification call, so an email delivery has not been observed.
 - Public-demo cleanup removed only expired rows in its configured organization during integration verification.
 - Local demo database created and migrated successfully.
 - EF Core reports no model changes pending a migration.
@@ -137,12 +143,12 @@ No paid service, credit card or automatic conversion to metered usage is authori
 | `OPEN-009` | Audit retention, export and support access | Blocks customer pilot | Open |
 | `OPEN-010` | Measured capacity envelope | Blocks scalability claims | Open |
 | `OPEN-011` | Customer hosting, licensed database, backup and restore target | Blocks customer pilot | Open |
-| `OPEN-012` | Activate an Azure subscription without starting paid usage | Blocks the approved public portfolio deployment | Open |
 
 ## 10. Change history
 
 | Version | Date | Change | Authority |
 |---:|---|---|---|
+| 0.6 | 2026-08-02 | Recorded the live zero-cost Azure deployment, alert boundary and public smoke evidence | Aitor Nain Mendoza Vallejo |
 | 0.5 | 2026-08-02 | Added the approved one-click public-demo boundary, local evidence and Azure subscription blocker | Aitor Nain Mendoza Vallejo |
 | 0.4 | 2026-08-02 | Clarified Swagger ETag input and aligned OpenAPI response media types | Aitor Nain Mendoza Vallejo |
 | 0.3 | 2026-08-02 | Implemented lifecycle, organization security, concurrency, audit, MIT and local demo | Aitor Nain Mendoza Vallejo |

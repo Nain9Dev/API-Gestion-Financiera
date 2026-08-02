@@ -1,7 +1,7 @@
 # Architecture
 
-- Document version: 0.5
-- Status: Approved and implemented for the local and public-demo boundaries
+- Document version: 0.6
+- Status: Approved and implemented for the local and live public-demo boundaries
 - Date: 2026-08-02
 - Governing ADRs: ADR-002, ADR-003 and ADR-005
 
@@ -119,6 +119,8 @@ The application rejects an already stale token before mutation. EF Core still pl
 
 EF Core's relational save transaction commits or rolls back the policy update and audit insert together. Tests verify that rejected completeness and stale-version commands leave no transition.
 
+SQL Server connections use EF Core's transient retry strategy for Azure SQL Serverless wake-up and short service interruptions. This does not retry lifecycle commands after a completed or uncertain HTTP response. The public-demo cleanup owns an explicit transaction, so its delete operations execute inside the same EF strategy and are retried as one atomic unit.
+
 ## Migration strategy
 
 Migration history is preserved:
@@ -150,7 +152,7 @@ Migration commands require `POLICY_OPERATIONS_MIGRATIONS_SQLSERVER`; there is no
 - 22 domain tests.
 - 17 API tests covering authentication, roles, scope, lifecycle, public demo, readiness, concurrency and audit.
 - 4 real SQL migration tests covering preservation and forward/down refusal.
-- 43 total tests; 21 use SQL Server 2025.
+- 43 tests in the baseline suite; 21 use SQL Server 2025.
 - Real local JWT smoke: create Draft, activate, cancel and read two transitions.
 - Real browser smoke: one click produced the expected five-step result and two transitions.
 - Test database deletion is limited by explicit prefixes.
@@ -162,8 +164,8 @@ The earlier 100,000-policy and 10-concurrent-client target remains an unverified
 | Phase | Deployment | State |
 |---|---|---|
 | Local technical demo | Local API, local JWT and SQL Server Standard Developer | Verified |
-| Public portfolio demo | Azure App Service F1 and Azure SQL Free, synthetic fixed scenario | Implemented locally; cloud blocked by inactive subscription |
-| Portfolio evidence | Public source, CI, local browser evidence and later live link | In progress |
+| Public portfolio demo | Azure App Service F1 and Azure SQL Free, synthetic fixed scenario | Live and verified over HTTPS |
+| Portfolio evidence | Public source, CI, live browser page and observed SQL-backed run | Passed for the approved slice |
 | Customer pilot | External issuer, licensed database/hosting, backup and privacy decisions | Not authorized |
 | Production | Measured availability, restore, monitoring and support | Not ready; not guaranteed free |
 

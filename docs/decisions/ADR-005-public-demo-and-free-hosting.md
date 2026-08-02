@@ -65,6 +65,19 @@ ADR-003 keeps the policy API protected by JWT and forbids exposing local develop
 
 No schema migration is required. Deployment applies the existing migration history to an empty Azure SQL database. Disabling `PublicDemo:Enabled` removes public-demo access without changing the protected API. All public-demo data is synthetic and may be deleted with the dedicated resource group after verification.
 
+## Implementation evidence
+
+Implemented on 2026-08-02 in France Central:
+
+- Linux App Service plan read back as `F1` / `Free`;
+- web app read back as .NET 10, HTTPS-only, TLS 1.2 and FTPS disabled;
+- Azure SQL read back as General Purpose Serverless with `useFreeLimit=true`, 32 GB maximum, local backup redundancy and `AutoPause` at exhaustion;
+- SQL firewall restricted to the App Service possible outbound IP set;
+- one metric alert enabled at 1,000 remaining vCore-seconds, evaluated every 15 minutes;
+- public HTTPS smoke returned healthy liveness/readiness and the complete five-step lifecycle with two audit transitions.
+
+The 99% alert is an early warning, not a cutoff. Azure SQL Free stops at 100% exhaustion through `AutoPause`, which is the control that prevents paid overage. The free subscription rejected a manual action-group test notification, so email delivery remains unobserved until a real alert fires.
+
 ## Reconsideration triggers
 
 Reconsider the façade when a qualified buyer needs individual identity, persistent workspaces, personal input, guaranteed availability, more than 30 runs per minute or a customer pilot.

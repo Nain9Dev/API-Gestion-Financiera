@@ -1,13 +1,15 @@
 # Public portfolio demo
 
-- Document version: 0.1
-- Status: Implemented and verified locally; Azure deployment blocked
+- Document version: 0.2
+- Status: Active evidence
 - Date: 2026-08-02
 - Governing decision: ADR-005
 
-## Current result
+## Live result
 
-The one-click page is available locally at `http://127.0.0.1:5055/demo/` when the public-demo configuration is enabled. A browser run against SQL Server 2025 observed:
+Open [https://nain-policy-demo-api.azurewebsites.net/demo/](https://nain-policy-demo-api.azurewebsites.net/demo/) and select **Run demo**. The page uses the deployed API and Azure SQL database; it does not simulate the result in the browser.
+
+The deployment smoke test observed:
 
 1. `201` — Draft created;
 2. `200` — policy activated;
@@ -15,27 +17,28 @@ The one-click page is available locally at `http://127.0.0.1:5055/demo/` when th
 4. `200` — current version cancelled;
 5. `200` — two audit transitions returned.
 
-The Azure account inspected on 2026-08-02 has no active subscription. The personal account offers a new trial and the existing Azure for Students subscription is disabled. No trial, payment method or cloud resource was created.
+The final policy status was `Cancelled`. `/health`, `/health/ready` and `/demo/` also returned `200` over HTTPS.
+
+F1 and Azure SQL Serverless can sleep or start slowly. The first request after a quiet period may take longer than later requests.
 
 ## Public contract
 
 ### Run the fixed scenario
 
 - Method: `POST`
-- URL: `https://<APP_NAME>.azurewebsites.net/api/v1/demo/run`
+- URL: `https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run`
 - Required headers: `Accept: application/json`
 - Request body: none
 - Authentication: none
-- Expected status after deployment: `200 OK`
+- Observed status: `200 OK`
 
 A request body is rejected with `400 Bad Request` and stable code `public_demo_body_not_allowed`.
 
-Representative expected response:
+Representative response:
 
 ```json
 {
-  "runId": "A1B2C3D4",
-  "executedAtUtc": "2026-08-02T12:00:00+00:00",
+  "runId": "06C3575F",
   "dataRetentionHours": 24,
   "steps": [
     {
@@ -43,7 +46,13 @@ Representative expected response:
       "status": 201,
       "result": "succeeded",
       "resourceStatus": "Draft",
-      "etag": "\"AAAAAAAAAAE=\"",
+      "errorCode": null
+    },
+    {
+      "operation": "activate_policy",
+      "status": 200,
+      "result": "succeeded",
+      "resourceStatus": "Active",
       "errorCode": null
     },
     {
@@ -51,30 +60,80 @@ Representative expected response:
       "status": 412,
       "result": "rejected_as_expected",
       "resourceStatus": "Active",
-      "etag": "\"AAAAAAAAAAE=\"",
       "errorCode": "concurrency_conflict"
+    },
+    {
+      "operation": "cancel_policy",
+      "status": 200,
+      "result": "succeeded",
+      "resourceStatus": "Cancelled",
+      "errorCode": null
+    },
+    {
+      "operation": "read_audit_trail",
+      "status": 200,
+      "result": "succeeded",
+      "resourceStatus": null,
+      "errorCode": null
     }
   ],
   "policy": {
     "status": "Cancelled"
-  },
-  "transitions": []
+  }
 }
 ```
 
-The real response includes five steps, the complete final policy and two transitions. The shortened example above is not evidence of a public deployment.
+ETags and identifiers vary on each execution. The actual response also contains the final policy and two complete transition records.
 
 ### Rate limit
 
-More than the configured number of runs from one client inside one minute returns:
+More than five runs from one client inside one minute returns:
 
-- Expected status: `429 Too Many Requests`
-- Stable code: `public_demo_rate_limited`
-- `Retry-After: 60`
+- status: `429 Too Many Requests`;
+- stable code: `public_demo_rate_limited`;
+- `Retry-After: 60`.
+
+## Verified Azure configuration
+
+All demo resources are isolated in `rg-nain-policy-demo` and colocated in France Central.
+
+| Resource | Verified configuration | Cost boundary |
+|---|---|---|
+| App Service plan | Linux `F1`, Free | Shared compute, no SLA, 60 CPU minutes/day |
+| Web app | .NET 10 LTS, HTTPS only, TLS 1.2, FTPS disabled | Runs only on the F1 plan |
+| Azure SQL | General Purpose Serverless, Gen5, 0.5 minimum vCore, 32 GB | Free offer applied |
+| Free-limit behavior | `useFreeLimit=true`, `AutoPause` | No continuation into paid overage |
+| Backup/storage | Local redundancy, 32 GB maximum, no zone redundancy | Inside the free offer boundary |
+| SQL network | 32 exact App Service possible outbound IPs | No `0.0.0.0` allow-all rule |
+| Alert | `free_amount_remaining <= 1000`, every 15 minutes | Email warning at approximately 99% consumed |
+
+Azure SQL cannot be forced to stop and remain stopped at exactly 99% consumption. The email alert is preventive. The authoritative no-charge barrier is `AutoPause`, which makes the database unavailable when the monthly free allowance is exhausted and resumes it when the allowance renews.
+
+The action group and alert are enabled. Azure rejected its manual test-notification endpoint with `Free subscription not supported`, so delivery of a test email was not observed. The alert rule itself was read back with the expected metric, threshold, aggregation and schedule.
+
+Cost-budget alerts are useful as a second warning but do not stop resources and can receive delayed cost data. They are not used as the database cutoff.
+
+## Deployment settings
+
+The connection string is stored in App Service configuration and is not present in source control. The active non-secret settings are:
+
+```text
+ASPNETCORE_ENVIRONMENT=Production
+Database__ApplyMigrationsOnStartup=false
+PublicDemo__Enabled=true
+PublicDemo__RetentionHours=24
+PublicDemo__RequestsPerMinute=5
+PolicyOperations__SupportedCurrencies__0=EUR
+AllowedHosts=nain-policy-demo-api.azurewebsites.net
+```
+
+`Database__ApplyMigrationsOnStartup` was enabled for the first deployment and disabled after all migrations and readiness checks succeeded. A future deployment containing a migration must enable it deliberately for that reviewed release and disable it again after verification.
+
+SQL transient retries are enabled for serverless wake-up. The demo cleanup transaction executes inside the same EF Core retry strategy, so its two deletes and commit remain one retryable atomic unit.
 
 ## Run locally
 
-Use a synthetic local database. Do not expose the port to the internet.
+Use a synthetic local database. Do not expose the local port to the internet.
 
 ```powershell
 $env:ConnectionStrings__DefaultConnection = "Server=.\NAINCONFIGURATOR;Database=PolicyOperationsPublicDemoLocal;Integrated Security=True;TrustServerCertificate=True;Encrypt=False"
@@ -90,35 +149,6 @@ dotnet run --project .\GestionFinanciera\PolicyOperations.Api --configuration Re
 
 Open [http://127.0.0.1:5055/demo/](http://127.0.0.1:5055/demo/). The protected policy endpoints still require a valid JWT.
 
-## Azure deployment checklist
-
-Do not start this checklist until the owner has an active subscription and confirms that Azure is not requesting a paid conversion.
-
-1. Create one dedicated resource group.
-2. Create Azure SQL Database using the free offer and select the option to pause when the monthly free allowance is exhausted.
-3. Create an App Service plan using the exact `F1` Free SKU and one code-only .NET 10 web app.
-4. Use the default `https://<APP_NAME>.azurewebsites.net` hostname.
-5. Keep the SQL connection string in App Service configuration, never in GitHub or `appsettings.json`.
-6. Configure the values below.
-7. Apply the existing three migrations to the empty database.
-8. Verify `/health`, `/health/ready`, `/demo/`, `/swagger` and one complete demo run.
-9. Confirm the Azure cost view remains at 0 EUR before adding the portfolio link.
-
-Required App Service configuration:
-
-```text
-ASPNETCORE_ENVIRONMENT=Production
-Database__ApplyMigrationsOnStartup=true
-PublicDemo__Enabled=true
-PublicDemo__OrganizationId=<DEDICATED_DEMO_GUID>
-PublicDemo__RetentionHours=24
-PublicDemo__RequestsPerMinute=5
-PolicyOperations__SupportedCurrencies__0=EUR
-AllowedHosts=<APP_NAME>.azurewebsites.net
-```
-
-After the first successful migration, `Database__ApplyMigrationsOnStartup` may be set to `false` until a reviewed deployment includes another migration.
-
 ## Security and operating boundary
 
 - The anonymous endpoint accepts no body or identity data.
@@ -127,8 +157,9 @@ After the first successful migration, `Database__ApplyMigrationsOnStartup` may b
 - Swagger contains no token and does not make protected endpoints anonymous.
 - `/health` is process liveness; `/health/ready` checks SQL connectivity.
 - App Service F1 and Azure SQL Free provide no SLA.
+- No customer or personal data is authorized.
 - A customer pilot still requires external identity, backup/restore evidence, privacy decisions, monitoring and support.
 
 ## Disable and recover
 
-Set `PublicDemo__Enabled=false` and restart the app to remove the anonymous operation and page. If the deployment must be removed, first confirm that the resource group contains only this synthetic demo, then delete the resource group through a separately reviewed operation. No destructive rollback migration is required.
+Set `PublicDemo__Enabled=false` and restart the app to remove the anonymous operation and page. To retire the deployment, first confirm that `rg-nain-policy-demo` still contains only synthetic demo resources, export any evidence that must be retained, and then remove the resource group through a reviewed operation. No destructive down migration is required.

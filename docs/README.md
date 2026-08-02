@@ -1,6 +1,6 @@
 # Documentation map
 
-- Document version: 0.4
+- Document version: 0.6
 - Status: Active
 - Date: 2026-08-02
 - Owner: Aitor Nain Mendoza Vallejo
@@ -25,18 +25,20 @@ If two approved sources conflict and neither has precedence, the affected work s
 
 | Source | Scope | Version | Status | Replaces |
 |---|---|---:|---|---|
-| `README.md` | Public presentation and short status | 0.4 | Active | Version 0.3 |
-| `docs/project-context.md` | Identity, scope, authority, readiness and sources | 0.4 | Active | Version 0.3 |
-| `docs/business-rules.md` | Implemented behavior and approved rules | 0.4 | Active | Version 0.3 |
-| `docs/architecture.md` | Current architecture and technical decisions | 0.4 | Approved | Version 0.3 |
-| `docs/roadmap.md` | Gates, Definition of Done and work order | 0.4 | Active | Version 0.3 |
-| `docs/economic-brief.md` | Commercial hypotheses, limits and validation | 0.4 | Draft | Version 0.3 |
+| `README.md` | Public presentation and short status | 0.6 | Active | Version 0.5 |
+| `docs/project-context.md` | Identity, scope, authority, readiness and sources | 0.6 | Active | Version 0.5 |
+| `docs/business-rules.md` | Implemented behavior and approved rules | 0.5 | Active | Version 0.4 |
+| `docs/architecture.md` | Current architecture and technical decisions | 0.6 | Approved | Version 0.5 |
+| `docs/roadmap.md` | Gates, Definition of Done and work order | 0.6 | Active | Version 0.5 |
+| `docs/economic-brief.md` | Commercial hypotheses, limits and validation | 0.6 | Draft | Version 0.5 |
 | `docs/local-demo.md` | Local visual walkthrough with synthetic data | 0.2 | Active | Version 0.1 |
+| `docs/public-demo.md` | One-click scenario, deployment and operating boundary | 0.2 | Active evidence | Version 0.1 |
 | `docs/repository-assessment.md` | Review of the previous prototype | 0.1 | Historical evidence | None |
 | `docs/decisions/ADR-001-product-direction.md` | Product direction | 0.1 | Approved | None |
 | `docs/decisions/ADR-002-runtime-and-architecture.md` | Runtime and solution structure | 0.1 | Approved | None |
 | `docs/decisions/ADR-003-lifecycle-security-and-organization-boundary.md` | Lifecycle, concurrency, authentication and organization | 0.1 | Approved | Pending decisions in version 0.2 docs |
 | `docs/decisions/ADR-004-repository-license.md` | Repository license | 0.1 | Approved | None |
+| `docs/decisions/ADR-005-public-demo-and-free-hosting.md` | Public demo and free hosting | 0.1 | Approved and implemented | None |
 
 ## Status meanings
 
@@ -46,8 +48,8 @@ If two approved sources conflict and neither has precedence, the affected work s
 - `Approved`: authorized by the named decision owner.
 - `Superseded`: retained only for historical traceability.
 
-## Approval required after the lifecycle slice
+## Approval required after the public-demo slice
 
-ADR-003 and ADR-004 approve the lifecycle/security contract and repository license. Risk-assessment inputs and any production identity, hosting or personal-data processing remain unapproved.
+ADR-005 approves the isolated synthetic public demo and its zero-cash hosting target. That deployment is now live and verified. The decision still does not approve customer identity, real personal data, paid infrastructure or a customer pilot.
 
 Approval must record the date, decision owner and affected version. A document existing in this directory does not make it approved.

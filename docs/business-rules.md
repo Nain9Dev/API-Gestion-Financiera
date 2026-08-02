@@ -1,6 +1,6 @@
 # Business rules and API contract
 
-- Document version: 0.4
+- Document version: 0.5
 - Status: Active
 - Date: 2026-08-02
 - Governing decisions: ADR-001, ADR-002 and ADR-003
@@ -112,6 +112,21 @@ The policy update and audit insert use one EF Core `SaveChanges` transaction. No
 | `PAGE-003` | Skip calculation cannot overflow a 32-bit SQL offset | Approved implemented |
 | `PAGE-004` | Order is policy number then identifier inside the organization | Approved implemented |
 
+## Public portfolio demo
+
+| ID | Rule | State |
+|---|---|---|
+| `DEMO-001` | The public demo is disabled unless deployment configuration explicitly enables it | Approved implemented |
+| `DEMO-002` | `POST /api/v1/demo/run` rejects a request body and accepts no visitor-selected policy data | Approved implemented |
+| `DEMO-003` | Organization and actor are fixed server-side and dedicated to synthetic portfolio runs | Approved implemented |
+| `DEMO-004` | One run uses the existing application services for Draft, activation, stale-version rejection, cancellation and audit | Approved implemented |
+| `DEMO-005` | Protected policy endpoints retain JWT, role and organization checks | Approved implemented |
+| `DEMO-006` | A fixed-window per-client limit allows 1 to 30 configured runs per minute | Approved implemented |
+| `DEMO-007` | Before a run, only expired policies and transitions in the configured demo organization are deleted | Approved implemented |
+| `DEMO-008` | The initial public-demo retention is 24 hours and the page uses no-store responses | Approved implemented |
+
+The façade is portfolio evidence, not an identity provider or customer API contract. A visitor cannot enter a name, document, contact detail, organization, amount, reason or arbitrary free text.
+
 ## Implemented API
 
 | Method | Route | Success | Relevant errors |
@@ -123,6 +138,8 @@ The policy update and audit insert use one EF Core `SaveChanges` transaction. No
 | `POST` | `/api/v1/policies/{policyId}/cancel` | `200` | `400`, `401`, `403`, `404`, `409`, `412`, `428` |
 | `GET` | `/api/v1/policies/{policyId}/transitions` | `200` | `401`, `403`, `404` |
 | `GET` | `/health` | `200` | Process liveness only |
+| `GET` | `/health/ready` | `200` | SQL Server connectivity; `503` when unavailable |
+| `POST` | `/api/v1/demo/run` | `200` | Anonymous only when enabled; `404`, `429`, `500` |
 
 Stable error codes include:
 

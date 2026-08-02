@@ -60,8 +60,8 @@ Acceptance evidence:
 ## Checks run for the public release
 
 - Release build: 0 warnings and 0 errors.
-- Release build and formatter pass on version 0.6; 22 domain tests pass.
-- The last full local SQL suite passed 43 tests on version 0.5. Its version 0.6 rerun was blocked by the local SQL instance's SSPI authentication failure before test logic.
+- Release build and formatter pass on version 0.6.
+- All 43 tests pass on version 0.6; 21 exercise real SQL Server 2025.
 - The changed serverless retry and cleanup path passed the deployed Azure five-step scenario and returned two audit transitions.
 - EF Core model has no pending migration changes.
 - NuGet direct/transitive vulnerability audit reports no known findings from configured sources.

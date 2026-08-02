@@ -1,6 +1,6 @@
 # Project context
 
-- Document version: 0.4
+- Document version: 0.5
 - Status: Active
 - Date: 2026-08-02
 - Scope: Product, authority, readiness, boundaries and blockers
@@ -17,7 +17,8 @@
 | Architecture | .NET 10 modular monolith | Approved in ADR-002 and implemented |
 | Lifecycle/security | Organization-scoped JWT, ETag and audit | Approved in ADR-003 and implemented |
 | Repository license | MIT | Approved in ADR-004 and added |
-| Current milestone | Local technical demo | Passed |
+| Public demo boundary and hosting target | One-click synthetic façade; Azure F1 + Azure SQL Free | Approved in ADR-005 |
+| Current milestone | Public demo prepared locally | Passed locally; Azure blocked |
 | Incremental cash budget | 0 EUR before commercial evidence | Approved constraint |
 | Owner-hours cap | 40 additional hours from 2026-08-02 | Approved guardrail |
 | Data boundary | Synthetic data only | Approved |
@@ -37,8 +38,9 @@ The customer hypothesis remains a small insurance brokerage or insurtech operati
 | Product foundation for implemented policy slice | Passed | Product, lifecycle, security and license decisions approved | Preserve traceability |
 | Implementation ready | Passed | API, persistence, migration, authorization and test contracts defined | None for implemented scope |
 | First create/get/list slice | Passed | .NET 10 and real SQL tests | Preserve regression gate |
-| Local technical demo | Passed | JWT smoke, lifecycle, concurrency and audit verified with synthetic data | Keep local-only boundary |
-| Portfolio publication evidence | In progress | README and demo guide updated | CI and recorded/screenshotted walkthrough optional next evidence |
+| Local technical demo | Passed | JWT smoke, lifecycle, concurrency and audit verified with synthetic data | Preserve regression gate |
+| One-click public-demo implementation | Passed locally | Browser run and SQL integration tests | Deploy only after an active zero-cost Azure subscription exists |
+| Portfolio publication evidence | In progress | README, CI and executable page prepared | Add the observed live URL only after deployment smoke |
 | Commercial validation | Ready but not started | 40-hour guardrail approved; no market evidence | Conduct bounded interviews separately |
 | Customer pilot | Not authorized | No external issuer, privacy, operations, hosting or contract evidence | Pass commercial and operational gates |
 
@@ -56,6 +58,8 @@ The customer hypothesis remains a small insurance brokerage or insurtech operati
 - expose ordered transition history;
 - preserve old migration history and stop unsafe ownership/currency inference;
 - provide Swagger and `.http` local demo clients;
+- provide a one-click synthetic demo page and anonymous fixed scenario, disabled by default;
+- limit public-demo runs, prune only expired demo-organization data and expose SQL readiness separately;
 - verify behavior against SQL Server 2025 Standard Developer.
 
 The pre-1.0 `/api/policies` prototype was intentionally replaced by `/api/v1/policies` before known external consumers existed.
@@ -70,7 +74,7 @@ The pre-1.0 `/api/policies` prototype was intentionally replaced by `/api/v1/pol
 - audit retention, export, legal hold or administrator search;
 - generic idempotency keys or automatic state-changing retries;
 - risk assessment, billing, integrations, documents, messaging or distributed services;
-- production hosting, backup, restore, alerting and support procedures.
+- customer hosting, backup, restore, alerting and support procedures.
 
 These are not defects in the local technical demo. They remain separate decisions or later gates.
 
@@ -80,7 +84,8 @@ These are not defects in the local technical demo. They remain separate decision
 - JWT actor and organization claims are the only scope source.
 - Connection strings and signing keys remain outside source control.
 - Local tokens use `dotnet user-jwts` and must not be accepted from the internet.
-- The `/health` endpoint is anonymous process liveness, not SQL readiness.
+- The public demo accepts no request body and uses a fixed synthetic organization and actor.
+- The `/health` endpoint is process liveness; `/health/ready` checks SQL connectivity.
 - Integration tests delete only databases matching protected prefixes.
 - `PolicyOperationsLocalDemo` contains synthetic demo evidence only.
 - A customer pilot requires classification, least privilege, retention, export/deletion, backups, restore tests and incident handling.
@@ -96,21 +101,25 @@ These are not defects in the local technical demo. They remain separate decision
 | API description | Swashbuckle 10.2.3 | MIT |
 | Tests | xUnit and Microsoft test platform | Apache-2.0/MIT packages |
 | Repository | MIT License | Commercial reuse permitted under license terms |
+| Public demo compute | Azure App Service F1 | Approved target; free quota, no SLA, not provisioned |
+| Public demo database | Azure SQL Database free offer | Approved target; stop at free limit, not provisioned |
 
-No paid service, credit card or metered production resource is authorized.
+No paid service, credit card or automatic conversion to metered usage is authorized. Azure Portal currently shows no active subscription for the personal account and a disabled Azure for Students subscription for the university account.
 
 ## 8. Current verification
 
 - Release build: 0 warnings, 0 errors.
 - Domain tests: 22 passed.
-- SQL Server API/security/OpenAPI tests: 14 passed.
+- SQL Server API/security/OpenAPI tests: 17 passed.
 - SQL Server migration tests: 4 passed.
-- Total: 40 passed; 18 use real SQL Server.
+- Total: 43 passed; 21 use real SQL Server.
 - Legacy active/cancelled rows and timestamps remain preserved by the lifecycle migration.
 - Duplicate legacy normalization stops before schema replacement.
 - Existing rows stop the organization/currency migration with SQL error `51003`.
 - Down migration with policy data stops with SQL error `51004`.
 - Real local JWT smoke observed `Draft -> Active -> Cancelled` and two transition rows.
+- Browser-observed one-click run returned `201`, `200`, `412`, `200`, `200` and two audit rows.
+- Public-demo cleanup removed only expired rows in its configured organization during integration verification.
 - Local demo database created and migrated successfully.
 - EF Core reports no model changes pending a migration.
 - NuGet reports no known vulnerable direct or transitive package from configured sources.
@@ -127,13 +136,14 @@ No paid service, credit card or metered production resource is authorized.
 | `OPEN-008` | External OpenID Connect issuer and customer identity lifecycle | Blocks public/customer authentication | Open |
 | `OPEN-009` | Audit retention, export and support access | Blocks customer pilot | Open |
 | `OPEN-010` | Measured capacity envelope | Blocks scalability claims | Open |
-| `OPEN-011` | Hosting, licensed production database, backup and restore target | Blocks customer pilot | Open |
-| `OPEN-012` | Portfolio publication/recording timing | Blocks public demo evidence only | Open |
+| `OPEN-011` | Customer hosting, licensed database, backup and restore target | Blocks customer pilot | Open |
+| `OPEN-012` | Activate an Azure subscription without starting paid usage | Blocks the approved public portfolio deployment | Open |
 
 ## 10. Change history
 
 | Version | Date | Change | Authority |
 |---:|---|---|---|
+| 0.5 | 2026-08-02 | Added the approved one-click public-demo boundary, local evidence and Azure subscription blocker | Aitor Nain Mendoza Vallejo |
 | 0.4 | 2026-08-02 | Clarified Swagger ETag input and aligned OpenAPI response media types | Aitor Nain Mendoza Vallejo |
 | 0.3 | 2026-08-02 | Implemented lifecycle, organization security, concurrency, audit, MIT and local demo | Aitor Nain Mendoza Vallejo |
 | 0.2 | 2026-08-01 | Product/architecture approvals and first slice | Aitor Nain Mendoza Vallejo |

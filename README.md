@@ -4,7 +4,7 @@ Este repositorio empezó como un CRUD pequeño y lo he convertido en una demo ba
 
 El objetivo no es aparentar que ya existe un SaaS terminado. Es enseñar, con código y pruebas que se pueden ejecutar, cómo trabajo con .NET, C#, diseño de APIs, reglas de negocio y persistencia relacional.
 
-> Estado: **demo técnica local preparada y verificada con datos sintéticos**. No está desplegada públicamente ni autorizada para clientes o datos personales reales.
+> Estado: **demo técnica de un clic implementada y verificada localmente con datos sintéticos**. El despliegue público está preparado, pero Azure no tiene una suscripción activa. No está autorizada para clientes ni datos personales reales.
 
 ## Capacidades implementadas
 
@@ -20,6 +20,9 @@ El objetivo no es aparentar que ya existe un SaaS terminado. Es enseñar, con c�
 - Problem Details seguro con stable error codes.
 - EF Core 10 y migrations que se niegan a inventar ownership o moneda para datos antiguos.
 - Swagger visual, colección `.http` y endpoint de salud del proceso.
+- Página de demo sin registro ni descargas que ejecuta un escenario sintético completo.
+- Rate limiting, retención de 24 horas y organización dedicada para la demo pública.
+- Readiness independiente para comprobar la conexión con SQL Server.
 - Tests de dominio, API, autorización, aislamiento y migrations contra SQL Server 2025 real.
 
 ## Arquitectura
@@ -41,6 +44,8 @@ La API es el composition root. Application define casos de uso y puertos concret
 | Método | Ruta | Autorización | Comportamiento |
 |---|---|---|---|
 | `GET` | `/health` | Anonymous | Liveness del proceso; no comprueba SQL Server |
+| `GET` | `/health/ready` | Anonymous | Readiness de la conexión con SQL Server |
+| `POST` | `/api/v1/demo/run` | Anonymous cuando se habilita | Ejecuta el escenario sintético fijo de cinco pasos |
 | `POST` | `/api/v1/policies` | `PolicyOperator` | Crea una póliza `Draft` |
 | `GET` | `/api/v1/policies/{policyId}` | Reader u Operator | Recupera una póliza de la organización |
 | `GET` | `/api/v1/policies` | Reader u Operator | Lista paginada, máximo 100 elementos |
@@ -73,13 +78,25 @@ La base `PolicyOperationsLocalDemo` fue creada y migrada en el equipo verificado
 
 Requests alternativas: [PolicyOperations.Api.http](GestionFinanciera/PolicyOperations.Api/PolicyOperations.Api.http).
 
+## Demo de un clic
+
+La página `/demo/` llama a una única operación sin cuerpo y muestra el resultado paso a paso:
+
+```text
+201 Draft -> 200 Active -> 412 stale ETag -> 200 Cancelled -> 200 audit
+```
+
+El recorrido se ha ejecutado desde un navegador contra SQL Server 2025 local y devolvió dos transiciones de auditoría. La demo no pide un token, no permite introducir texto y elimina registros sintéticos antiguos de su organización dedicada.
+
+La preparación y el checklist de Azure están en [docs/public-demo.md](docs/public-demo.md). Todavía no se publica un enlace `Probar API` porque las cuentas de Azure inspeccionadas no tienen una suscripción activa; se evita así enlazar una demo rota o iniciar una prueba con posible facturación.
+
 ## Quality gate verificado
 
 - Build Release: 0 warnings y 0 errores.
 - 22 tests de dominio.
-- 14 tests de API/autorización/organización y contrato OpenAPI.
+- 17 tests de API, autorización, organización, demo pública, readiness y OpenAPI.
 - 4 tests de migrations y recuperación segura.
-- 40 tests totales contra el código actual; 18 utilizan SQL Server real.
+- 43 tests totales contra el código actual; 21 utilizan SQL Server real.
 - EF Core sin cambios de modelo pendientes de migration.
 - Auditoría NuGet sin vulnerabilidades conocidas en paquetes directos o transitivos.
 - Smoke test real: `Draft -> Active -> Cancelled`, dos transiciones persistidas mediante JWT local.
@@ -87,6 +104,7 @@ Requests alternativas: [PolicyOperations.Api.http](GestionFinanciera/PolicyOpera
 ## Límites actuales
 
 - El JWT de `dotnet user-jwts` es exclusivamente para desarrollo local.
+- La operación pública de demo no sustituye autenticación ni permite trabajar con datos elegidos por el visitante.
 - Un piloto requiere un issuer OpenID Connect aprobado y configuración operativa.
 - No existe administración de organizaciones, invitaciones o usuarios.
 - No se han implementado retención/export del audit trail, backups probados ni alertas.
@@ -96,7 +114,7 @@ Requests alternativas: [PolicyOperations.Api.http](GestionFinanciera/PolicyOpera
 
 ## Coste y licencia
 
-La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. El coste incremental autorizado es 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
+La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. La demo pública tiene aprobado Azure App Service F1 y Azure SQL Free, pero no se ha creado ningún recurso porque no existe una suscripción activa. El coste incremental autorizado es 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
 
 SQL Server Standard Developer es gratuito para desarrollo/pruebas, pero no está licenciado para producción. Producción requerirá una decisión explícita sobre base de datos, hosting, backups, restauración, privacidad y soporte.
 
@@ -108,11 +126,13 @@ SQL Server Standard Developer es gratuito para desarrollo/pruebas, pero no está
 - [Arquitectura](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
 - [Demo local](docs/local-demo.md)
+- [Demo pública de un clic](docs/public-demo.md)
 - [Economic brief](docs/economic-brief.md)
 - [ADR-001: product direction](docs/decisions/ADR-001-product-direction.md)
 - [ADR-002: runtime and architecture](docs/decisions/ADR-002-runtime-and-architecture.md)
 - [ADR-003: lifecycle and security](docs/decisions/ADR-003-lifecycle-security-and-organization-boundary.md)
 - [ADR-004: repository license](docs/decisions/ADR-004-repository-license.md)
+- [ADR-005: public demo and free hosting](docs/decisions/ADR-005-public-demo-and-free-hosting.md)
 
 ## Autor
 

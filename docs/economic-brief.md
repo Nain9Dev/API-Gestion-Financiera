@@ -1,6 +1,6 @@
 # Economic brief
 
-- Document version: 0.4
+- Document version: 0.5
 - Status: Draft
 - Date: 2026-08-02
 - Decision owner: Aitor Nain Mendoza Vallejo
@@ -73,7 +73,7 @@ The 40-hour guardrail covers the remaining technical demo, preparation and comme
 | Local database | Installed SQL Server 2025 Standard Developer | Free only for development and test; it is not licensed for production | Any customer pilot that stores operational data requires an approved production database and recovery plan |
 | Source and CI | Public GitHub repository and standard GitHub-hosted runners | Public standard-runner Actions usage is free; storage/metered extras still need controls | Private code, extra storage or paid runner need |
 | API exploration | OpenAPI UI and tracked `.http` requests | Swashbuckle is MIT; compatibility must be reviewed on upgrade | Approved consumer requires another format/tool |
-| Demo exposure | README, diagrams, screenshots and recorded demo on existing portfolio | No live backend required | Qualified buyer needs a bounded interactive pilot |
+| Demo exposure | One-click synthetic façade on Azure App Service F1 and Azure SQL Free | No SLA; stop SQL at free limit; not deployed without an active subscription | Free limits harm the demo or qualified buyer needs a pilot |
 
 “Zero cash” excludes the economic cost of owner time and existing hardware, electricity, internet and domain. Those costs must be tracked before pricing.
 
@@ -134,10 +134,10 @@ Separate setup, recurring service and professional services when their cost driv
 - product and buyer hypotheses unvalidated;
 - price and delivery responsibility undefined;
 - repository license is MIT; third-party dependency licenses still require review;
-- authentication, privacy, backup, restoration and support not implemented;
+- customer authentication, privacy, backup, restoration and support not implemented;
 - real-data processing not authorized;
 - owner-hour tracking has not started;
-- portfolio claims exceed implemented evidence.
+- Azure subscription is inactive, so the public backend and live portfolio button do not exist yet.
 
 ## Next economic decision
 
@@ -147,6 +147,7 @@ Track the approved 40-hour guardrail and stop product expansion if it is exhaust
 
 | Version | Date | Change | Approval |
 |---:|---|---|---|
+| 0.5 | 2026-08-02 | Added the approved zero-cash public-demo target and recorded the inactive Azure subscription blocker | Hosting target approved; commercial hypotheses remain Draft |
 | 0.4 | 2026-08-02 | Edited wording for clarity; no commercial threshold changed | Commercial hypotheses remain Draft |
 | 0.3 | 2026-08-02 | Approved 40-hour guardrail and recorded MIT repository license | Guardrail and license approved; commercial hypotheses remain Draft |
 | 0.2 | 2026-08-01 | Aligned runtime, local database limits and technical evidence with the implemented slice | Not approved |

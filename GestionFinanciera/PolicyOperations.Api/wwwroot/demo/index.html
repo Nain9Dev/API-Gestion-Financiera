@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Demo pública de la API de operaciones de pólizas de NainDev.">
+    <meta name="referrer" content="no-referrer">
+    <link rel="stylesheet" href="/demo/demo.css">
+    <title>Demo API de pólizas | NainDev</title>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <a class="back-link" href="https://www.naindev.com/#projects">← Volver al portfolio</a>
+        <p class="eyebrow">Demo backend · .NET 10 · SQL Server</p>
+        <h1>Ejecuta un ciclo completo de póliza</h1>
+        <p class="summary">
+          Una ejecución crea una póliza sintética, la activa, demuestra el rechazo de una versión obsoleta,
+          la cancela y recupera su historial de auditoría.
+        </p>
+        <div class="actions">
+          <button id="run-demo" type="button">Ejecutar demo ahora</button>
+          <a href="/swagger" target="_blank" rel="noopener noreferrer">Ver todos los endpoints ↗</a>
+          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer">Revisar código ↗</a>
+        </div>
+        <p class="boundary">No necesitas registro ni descargar nada. La demo no acepta datos personales y elimina automáticamente los registros sintéticos antiguos.</p>
+      </header>
+
+      <section class="result-panel" aria-labelledby="result-title">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Evidencia observable</p>
+            <h2 id="result-title">Resultado de la ejecución</h2>
+          </div>
+          <p id="run-status" role="status" aria-live="polite">Lista para ejecutar.</p>
+        </div>
+
+        <ol id="steps" class="steps">
+          <li><span>01</span><strong>Crear Draft</strong><small>Pendiente</small></li>
+          <li><span>02</span><strong>Activar póliza</strong><small>Pendiente</small></li>
+          <li><span>03</span><strong>Rechazar ETag obsoleto</strong><small>Pendiente</small></li>
+          <li><span>04</span><strong>Cancelar póliza</strong><small>Pendiente</small></li>
+          <li><span>05</span><strong>Leer auditoría</strong><small>Pendiente</small></li>
+        </ol>
+
+        <details id="raw-result" hidden>
+          <summary>Ver respuesta JSON completa</summary>
+          <pre><code id="raw-json"></code></pre>
+        </details>
+      </section>
+    </main>
+
+    <script type="module" src="/demo/demo.js"></script>
+  </body>
+</html>

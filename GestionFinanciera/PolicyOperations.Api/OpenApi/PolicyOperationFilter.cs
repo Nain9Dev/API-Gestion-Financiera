@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -10,6 +11,13 @@ public sealed class PolicyOperationFilter : IOperationFilter
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
+        if (context.ApiDescription.ActionDescriptor.EndpointMetadata
+            .OfType<IAllowAnonymous>()
+            .Any())
+        {
+            operation.Security = [];
+        }
+
         DocumentIfMatch(operation);
         DocumentResponseContentTypes(operation);
     }

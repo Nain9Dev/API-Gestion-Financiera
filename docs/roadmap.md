@@ -1,12 +1,12 @@
 # Roadmap and gates
 
-- Document version: 0.4
+- Document version: 0.5
 - Status: Active
 - Date: 2026-08-02
 
 ## Where the project stands
 
-The local technical demo foundation is complete for the approved scope. The next investment should improve portfolio evidence or obtain commercial evidence, not expand into risk scoring, integrations or production infrastructure.
+The local technical demo and the one-click public façade are complete for the approved scope. The next technical action is deployment, but Azure has no active subscription. Do not replace that blocker with paid or HTTP-only infrastructure.
 
 ## Gate overview
 
@@ -16,7 +16,7 @@ The local technical demo foundation is complete for the approved scope. The next
 | G1 Implementation ready | Passed | Contracts, security boundary and migration strategy defined | None for current scope |
 | G2 First vertical slice | Passed | Create/get/list and SQL verification | Preserve regression gate |
 | G3 Local technical demo | Passed | 40 tests and observed JWT lifecycle smoke | Local/synthetic boundary |
-| G3.1 Portfolio publication evidence | In progress | README, Swagger and demo guide | CI and recorded/screenshotted walkthrough |
+| G3.1 Portfolio publication evidence | In progress | README, CI, one-click page and local browser evidence | Active Azure subscription and observed live URL |
 | G4 Commercial validation | Ready, not started | 40-hour and 0 EUR guardrails | Run bounded validation separately |
 | G5 Customer pilot | Not authorized | None | Commercial, identity, privacy and operation gates |
 
@@ -40,10 +40,27 @@ Acceptance evidence:
 - Release build passes with warnings as errors;
 - 22 domain and 18 SQL Server integration/migration tests pass.
 
+## Completed public-demo slice
+
+`One portfolio click -> fixed synthetic API run -> visible five-step evidence`
+
+Acceptance evidence:
+
+- no registration, download, token or request body;
+- normal policy endpoints remain JWT protected;
+- one dedicated demo organization and server-side actor;
+- 24-hour opportunistic cleanup restricted to that organization;
+- configurable fixed-window rate limit and stable `429` response;
+- separate process liveness and SQL readiness;
+- same-origin page with restrictive browser policy and no external assets;
+- local browser run observed `201 -> 200 -> 412 -> 200 -> 200` and two audit transitions;
+- Release build passes with 0 warnings and 0 errors;
+- 22 domain and 21 SQL Server integration/migration tests pass.
+
 ## Checks run on this version
 
 - Release build: 0 warnings and 0 errors.
-- 40 tests pass on the exact delivered content.
+- 43 tests pass on the exact delivered content.
 - EF Core model has no pending migration changes.
 - NuGet direct/transitive vulnerability audit reports no known findings from configured sources.
 - Formatter verification passes.
@@ -53,12 +70,12 @@ Acceptance evidence:
 
 ## Recommended next work within the 40-hour guardrail
 
-### 1. Show the work in the portfolio
+### 1. Finish the approved deployment without crossing the zero-cash boundary
 
-- add a free GitHub Actions build/domain-test workflow after deciding to publish current changes;
-- record a 3-5 minute walkthrough following `docs/local-demo.md`;
-- capture Swagger, stale-ETag and audit-trail screenshots;
-- update the portfolio page only with observed claims;
+- activate an Azure subscription only if it does not require an unapproved paid conversion;
+- create exact F1 and Azure SQL free resources with stop-at-free-limit behavior;
+- verify health, Swagger and the one-click flow over the public HTTPS hostname;
+- add the live button to the portfolio only after that smoke passes;
 - record active owner time against the 40-hour cap.
 
 ### 2. Look for a real commercial signal before writing more product code
@@ -93,6 +110,7 @@ Acceptance evidence:
 - 40 additional owner-hours are exhausted without stronger commercial evidence;
 - portfolio claims exceed verified behavior;
 - a public endpoint is exposed using local JWTs;
+- a paid Azure resource or automatic usage continuation is enabled;
 - real personal data is introduced before the pilot gate;
 - a migration assigns organization or currency without verified row ownership;
 - optional features displace validation, security or recovery work.

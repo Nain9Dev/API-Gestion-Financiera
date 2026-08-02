@@ -4,7 +4,7 @@ Este repositorio empezó como un CRUD pequeño y lo he convertido en una demo ba
 
 El objetivo no es aparentar que ya existe un SaaS terminado. Es enseñar, con código y pruebas que se pueden ejecutar, cómo trabajo con .NET, C#, diseño de APIs, reglas de negocio y persistencia relacional.
 
-> Estado: **demo técnica de un clic implementada y verificada localmente con datos sintéticos**. El despliegue público está preparado, pero Azure no tiene una suscripción activa. No está autorizada para clientes ni datos personales reales.
+> Estado: **demo técnica pública y verificada con datos sintéticos**. Puede probarse por HTTPS sin instalar nada. No está autorizada para clientes ni datos personales reales.
 
 ## Capacidades implementadas
 
@@ -88,7 +88,7 @@ La página `/demo/` llama a una única operación sin cuerpo y muestra el result
 
 El recorrido se ha ejecutado desde un navegador contra SQL Server 2025 local y devolvió dos transiciones de auditoría. La demo no pide un token, no permite introducir texto y elimina registros sintéticos antiguos de su organización dedicada.
 
-La preparación y el checklist de Azure están en [docs/public-demo.md](docs/public-demo.md). Todavía no se publica un enlace `Probar API` porque las cuentas de Azure inspeccionadas no tienen una suscripción activa; se evita así enlazar una demo rota o iniciar una prueba con posible facturación.
+Abre [Probar API](https://nain-policy-demo-api.azurewebsites.net/demo/) para ejecutar el recorrido. La configuración de Azure, los límites gratuitos y la evidencia observada están en [docs/public-demo.md](docs/public-demo.md).
 
 ## Quality gate verificado
 
@@ -96,7 +96,7 @@ La preparación y el checklist de Azure están en [docs/public-demo.md](docs/pub
 - 22 tests de dominio.
 - 17 tests de API, autorización, organización, demo pública, readiness y OpenAPI.
 - 4 tests de migrations y recuperación segura.
-- 43 tests totales contra el código actual; 21 utilizan SQL Server real.
+- 43 tests en la suite; 21 utilizan SQL Server real.
 - EF Core sin cambios de modelo pendientes de migration.
 - Auditoría NuGet sin vulnerabilidades conocidas en paquetes directos o transitivos.
 - Smoke test real: `Draft -> Active -> Cancelled`, dos transiciones persistidas mediante JWT local.
@@ -107,14 +107,14 @@ La preparación y el checklist de Azure están en [docs/public-demo.md](docs/pub
 - La operación pública de demo no sustituye autenticación ni permite trabajar con datos elegidos por el visitante.
 - Un piloto requiere un issuer OpenID Connect aprobado y configuración operativa.
 - No existe administración de organizaciones, invitaciones o usuarios.
-- No se han implementado retención/export del audit trail, backups probados ni alertas.
+- No se han implementado retención/export del audit trail, restauración probada ni alertas operativas para clientes. La demo sí avisa cuando Azure SQL Free se acerca a su cuota.
 - No existe evaluación de riesgo, billing, integraciones ni multi-región.
 - No se permiten datos personales reales ni exposición de los puertos locales a internet.
 - La capacidad objetivo todavía no tiene un load test reproducible.
 
 ## Coste y licencia
 
-La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. La demo pública tiene aprobado Azure App Service F1 y Azure SQL Free, pero no se ha creado ningún recurso porque no existe una suscripción activa. El coste incremental autorizado es 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
+La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. La demo pública está desplegada en Azure App Service F1 y Azure SQL Free. La base tiene `AutoPause` al agotar la cuota y no puede continuar como uso de pago; una alerta por correo avisa cuando queda aproximadamente el 1 %. El coste incremental autorizado sigue siendo 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
 
 SQL Server Standard Developer es gratuito para desarrollo/pruebas, pero no está licenciado para producción. Producción requerirá una decisión explícita sobre base de datos, hosting, backups, restauración, privacidad y soporte.
 

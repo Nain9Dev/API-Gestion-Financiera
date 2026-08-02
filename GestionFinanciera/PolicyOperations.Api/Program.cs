@@ -34,7 +34,12 @@ var publicDemo = builder.Configuration
     .Get<PublicDemoOptions>() ?? new PublicDemoOptions();
 
 builder.Services.AddDbContext<PolicyOperationsDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(
+        connectionString,
+        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+            maxRetryCount: 10,
+            maxRetryDelay: TimeSpan.FromSeconds(15),
+            errorNumbersToAdd: null)));
 builder.Services.AddScoped<IPolicyRepository, EfPolicyRepository>();
 builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PolicyOperationsDbContext>());

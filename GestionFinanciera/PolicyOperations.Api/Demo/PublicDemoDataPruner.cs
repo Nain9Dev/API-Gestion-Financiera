@@ -17,27 +17,32 @@ public sealed class PublicDemoDataPruner
         DateTimeOffset createdBeforeUtc,
         CancellationToken cancellationToken)
     {
-        var expiredPolicyIds = _dbContext.Policies
-            .Where(policy =>
-                policy.OrganizationId == organizationId &&
-                policy.CreatedAtUtc < createdBeforeUtc)
-            .Select(policy => policy.Id);
+        var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(
-            cancellationToken);
+        await executionStrategy.ExecuteAsync(async () =>
+        {
+            var expiredPolicyIds = _dbContext.Policies
+                .Where(policy =>
+                    policy.OrganizationId == organizationId &&
+                    policy.CreatedAtUtc < createdBeforeUtc)
+                .Select(policy => policy.Id);
 
-        await _dbContext.PolicyTransitions
-            .Where(transition =>
-                transition.OrganizationId == organizationId &&
-                expiredPolicyIds.Contains(transition.PolicyId))
-            .ExecuteDeleteAsync(cancellationToken);
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
 
-        await _dbContext.Policies
-            .Where(policy =>
-                policy.OrganizationId == organizationId &&
-                policy.CreatedAtUtc < createdBeforeUtc)
-            .ExecuteDeleteAsync(cancellationToken);
+            await _dbContext.PolicyTransitions
+                .Where(transition =>
+                    transition.OrganizationId == organizationId &&
+                    expiredPolicyIds.Contains(transition.PolicyId))
+                .ExecuteDeleteAsync(cancellationToken);
 
-        await transaction.CommitAsync(cancellationToken);
+            await _dbContext.Policies
+                .Where(policy =>
+                    policy.OrganizationId == organizationId &&
+                    policy.CreatedAtUtc < createdBeforeUtc)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        });
     }
 }

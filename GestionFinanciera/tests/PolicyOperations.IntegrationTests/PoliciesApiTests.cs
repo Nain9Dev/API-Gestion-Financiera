@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using PolicyOperations.Api.Demo;
 using PolicyOperations.Api.Security;
 using PolicyOperations.Application.Policies;
 using PolicyOperations.Domain.Policies;
@@ -29,6 +30,8 @@ public sealed class PoliciesApiTests : IAsyncLifetime
         Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OtherOrganizationId =
         Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid PublicDemoOrganizationId =
+        Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     private WebApplicationFactory<Program>? _factory;
@@ -104,6 +107,114 @@ public sealed class PoliciesApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("authentication_required", await ReadProblemCodeAsync(response));
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [SqlServerFact]
+    public async Task PublicDemoRunsCompleteSyntheticLifecycleWithoutAuthentication()
+    {
+        using var anonymousClient = Factory.CreateClient();
+
+        var bodyResponse = await anonymousClient.PostAsync(
+            "/api/v1/demo/run",
+            JsonContent.Create(new { ignored = "visitor input" }));
+        Assert.Equal(HttpStatusCode.BadRequest, bodyResponse.StatusCode);
+        Assert.Equal(
+            "public_demo_body_not_allowed",
+            await ReadProblemCodeAsync(bodyResponse));
+
+        var response = await anonymousClient.PostAsync(
+            "/api/v1/demo/run",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+
+        await using var contentStream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(contentStream);
+        var root = document.RootElement;
+        var steps = root.GetProperty("steps").EnumerateArray().ToArray();
+        var transitions = root.GetProperty("transitions").EnumerateArray().ToArray();
+
+        Assert.Equal(5, steps.Length);
+        Assert.Equal("create_draft", steps[0].GetProperty("operation").GetString());
+        Assert.Equal(201, steps[0].GetProperty("status").GetInt32());
+        Assert.Equal("reject_stale_update", steps[2].GetProperty("operation").GetString());
+        Assert.Equal(412, steps[2].GetProperty("status").GetInt32());
+        Assert.Equal(
+            "concurrency_conflict",
+            steps[2].GetProperty("errorCode").GetString());
+        Assert.Equal(
+            PublicDemoOrganizationId,
+            root.GetProperty("policy").GetProperty("organizationId").GetGuid());
+        Assert.Equal(
+            "Cancelled",
+            root.GetProperty("policy").GetProperty("status").GetString());
+        Assert.Equal(2, transitions.Length);
+        Assert.All(
+            transitions,
+            transition => Assert.Equal(
+                "public-portfolio-demo",
+                transition.GetProperty("actorSubject").GetString()));
+    }
+
+    [SqlServerFact]
+    public async Task PublicDemoPrunerDeletesOnlyExpiredDemoPolicies()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expiredPolicy = Policy.Create(
+            PublicDemoOrganizationId,
+            "SYNTH-EXPIRED-DEMO",
+            100m,
+            "EUR",
+            now.AddHours(-25));
+        var currentPolicy = Policy.Create(
+            PublicDemoOrganizationId,
+            "SYNTH-CURRENT-DEMO",
+            100m,
+            "EUR",
+            now);
+        var otherOrganizationPolicy = Policy.Create(
+            OtherOrganizationId,
+            "SYNTH-OTHER-EXPIRED",
+            100m,
+            "EUR",
+            now.AddHours(-25));
+
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PolicyOperationsDbContext>();
+        await dbContext.Policies.AddRangeAsync(
+            expiredPolicy,
+            currentPolicy,
+            otherOrganizationPolicy);
+        await dbContext.SaveChangesAsync();
+
+        var pruner = scope.ServiceProvider.GetRequiredService<PublicDemoDataPruner>();
+        await pruner.PruneAsync(
+            PublicDemoOrganizationId,
+            now.AddHours(-24),
+            CancellationToken.None);
+
+        Assert.False(await dbContext.Policies
+            .AsNoTracking()
+            .AnyAsync(policy => policy.Id == expiredPolicy.Id));
+        Assert.True(await dbContext.Policies
+            .AsNoTracking()
+            .AnyAsync(policy => policy.Id == currentPolicy.Id));
+        Assert.True(await dbContext.Policies
+            .AsNoTracking()
+            .AnyAsync(policy => policy.Id == otherOrganizationPolicy.Id));
+    }
+
+    [SqlServerFact]
+    public async Task LivenessAndSqlReadinessAreSeparateAndHealthy()
+    {
+        using var anonymousClient = Factory.CreateClient();
+
+        var livenessResponse = await anonymousClient.GetAsync("/health");
+        var readinessResponse = await anonymousClient.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, livenessResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, readinessResponse.StatusCode);
     }
 
     [SqlServerFact]
@@ -410,6 +521,14 @@ public sealed class PoliciesApiTests : IAsyncLifetime
             .GetProperty("400")
             .GetProperty("content")
             .TryGetProperty("application/problem+json", out _));
+
+        var demoOperation = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/demo/run")
+            .GetProperty("post");
+        Assert.True(
+            !demoOperation.TryGetProperty("security", out var demoSecurity) ||
+            demoSecurity.GetArrayLength() == 0);
     }
 
     private HttpClient Client =>
@@ -420,6 +539,13 @@ public sealed class PoliciesApiTests : IAsyncLifetime
 
     private static void ConfigureTestAuthentication(IWebHostBuilder webHostBuilder)
     {
+        webHostBuilder.UseSetting("PublicDemo:Enabled", "true");
+        webHostBuilder.UseSetting(
+            "PublicDemo:OrganizationId",
+            PublicDemoOrganizationId.ToString());
+        webHostBuilder.UseSetting("PublicDemo:RetentionHours", "24");
+        webHostBuilder.UseSetting("PublicDemo:RequestsPerMinute", "30");
+
         webHostBuilder.ConfigureTestServices(services =>
         {
             services

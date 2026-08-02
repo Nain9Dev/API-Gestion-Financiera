@@ -1,9 +1,9 @@
 # Architecture
 
-- Document version: 0.4
-- Status: Approved and implemented for the local technical demo
+- Document version: 0.5
+- Status: Approved and implemented for the local and public-demo boundaries
 - Date: 2026-08-02
-- Governing ADRs: ADR-002 and ADR-003
+- Governing ADRs: ADR-002, ADR-003 and ADR-005
 
 ## Decision
 
@@ -12,8 +12,9 @@ Use one .NET 10 modular monolith and one SQL Server database. Keep business rule
 ## Structure
 
 ```text
-JWT client / Swagger
+JWT client / Swagger                 Anonymous portfolio visitor
     -> PolicyOperations.Api
+        <- fixed /api/v1/demo/run + same-origin /demo page
         -> PolicyOperations.Application
             -> PolicyOperations.Domain
         -> PolicyOperations.Infrastructure
@@ -29,7 +30,7 @@ PolicyOperations.IntegrationTests -> API + Infrastructure + SQL Server
 | Domain | Policy invariants, lifecycle and transition creation | HTTP, EF Core, SQL and JWT parsing |
 | Application | Organization-scoped use cases, currency catalog port, concurrency orchestration and DTOs | Controllers and SQL implementation |
 | Infrastructure | EF Core context, mappings, migrations and concrete queries | Authentication and business decisions |
-| API | Composition, JWT authorization, trusted actor context, ETags, OpenAPI and safe errors | Direct SQL and client-selected organization |
+| API | Composition, JWT authorization, trusted actor context, ETags, OpenAPI, fixed public-demo façade and safe errors | Arbitrary anonymous data and client-selected organization |
 
 ## Dependency decisions
 
@@ -41,6 +42,7 @@ PolicyOperations.IntegrationTests -> API + Infrastructure + SQL Server
 - Microsoft JWT Bearer validates tokens; the application never implements password or token issuance.
 - `dotnet user-jwts` is used only as the local issuer.
 - SQL constraints remain authoritative under concurrent or non-API writes.
+- The public façade reuses `PolicyService`; it does not duplicate lifecycle rules.
 
 ## Technology baseline
 
@@ -83,6 +85,8 @@ Validated JWT
 - Cross-organization lookup returns `404` rather than confirming existence.
 
 The API can later trust an external OpenID Connect issuer without changing domain or SQL ownership. Issuer selection, user lifecycle and organization administration are not implemented.
+
+The only anonymous business operation is the optional public-demo run. It has no request body, assigns a dedicated organization and actor on the server and cannot authorize access to `/api/v1/policies`.
 
 ## Domain and persistence
 
@@ -135,15 +139,20 @@ Migration commands require `POLICY_OPERATIONS_MIGRATIONS_SQLSERVER`; there is no
 - Domain validation uses `400`, missing scoped resources `404`, state/number conflicts `409`, stale version `412`, and missing precondition `428`.
 - Unexpected errors are logged internally and return `internal_error` without exception details.
 - JSON enum values and public identifiers remain English.
+- The public-demo page is same-origin, sends no credentials and receives no-store responses.
+- A fixed-window rate limiter returns `429 public_demo_rate_limited` before demo work starts.
+- Expired demo data is pruned inside a transaction and filtered by the dedicated organization.
+- `/health` remains liveness while `/health/ready` checks SQL Server.
 
 ## Quality evidence
 
 - Release build: 0 warnings and 0 errors.
 - 22 domain tests.
-- 13 API tests covering authentication, roles, scope, lifecycle, concurrency and audit.
+- 17 API tests covering authentication, roles, scope, lifecycle, public demo, readiness, concurrency and audit.
 - 4 real SQL migration tests covering preservation and forward/down refusal.
-- 40 total tests; 18 use SQL Server 2025.
+- 43 total tests; 21 use SQL Server 2025.
 - Real local JWT smoke: create Draft, activate, cancel and read two transitions.
+- Real browser smoke: one click produced the expected five-step result and two transitions.
 - Test database deletion is limited by explicit prefixes.
 
 ## Capacity and deployment boundary
@@ -153,7 +162,8 @@ The earlier 100,000-policy and 10-concurrent-client target remains an unverified
 | Phase | Deployment | State |
 |---|---|---|
 | Local technical demo | Local API, local JWT and SQL Server Standard Developer | Verified |
-| Portfolio evidence | Public source, CI and recorded walkthrough | In progress |
+| Public portfolio demo | Azure App Service F1 and Azure SQL Free, synthetic fixed scenario | Implemented locally; cloud blocked by inactive subscription |
+| Portfolio evidence | Public source, CI, local browser evidence and later live link | In progress |
 | Customer pilot | External issuer, licensed database/hosting, backup and privacy decisions | Not authorized |
 | Production | Measured availability, restore, monitoring and support | Not ready; not guaranteed free |
 

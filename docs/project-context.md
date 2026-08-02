@@ -113,7 +113,9 @@ No paid service or automatic conversion to metered usage is authorized. The depl
 
 - Release build for version 0.6: 0 warnings, 0 errors.
 - Domain tests for version 0.6: 22 passed.
-- The 17 API and 4 migration tests passed against real SQL Server on version 0.5. Their version 0.6 rerun was blocked before test logic because the local SQL instance rejected Windows authentication with an SSPI error.
+- SQL Server API/security/OpenAPI tests for version 0.6: 17 passed.
+- SQL Server migration tests for version 0.6: 4 passed.
+- Total for version 0.6: 43 passed; 21 use real SQL Server 2025.
 - The changed retry and cleanup path was exercised by the live Azure run: five successful expected steps, final `Cancelled` policy and two transitions.
 - Legacy active/cancelled rows and timestamps remain preserved by the lifecycle migration.
 - Duplicate legacy normalization stops before schema replacement.

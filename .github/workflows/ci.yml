@@ -8,8 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  SOLUTION: ./GestionFinanciera/GestionFinanciera.sln
+
 jobs:
-  build-and-domain-tests:
+  build-and-fast-tests:
+    name: Build, format and database-free tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,16 +25,110 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore ./GestionFinanciera/GestionFinanciera.sln
+        run: dotnet restore ${{ env.SOLUTION }}
 
       - name: Verify formatting
-        run: dotnet format ./GestionFinanciera/GestionFinanciera.sln --verify-no-changes --no-restore
+        run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --no-restore
 
       - name: Build
-        run: dotnet build ./GestionFinanciera/GestionFinanciera.sln --configuration Release --no-restore
+        run: dotnet build ${{ env.SOLUTION }} --configuration Release --no-restore
 
       - name: Run domain tests
-        run: dotnet test ./GestionFinanciera/tests/PolicyOperations.Domain.Tests/PolicyOperations.Domain.Tests.csproj --configuration Release --no-build
+        run: >-
+          dotnet test ./GestionFinanciera/tests/PolicyOperations.Domain.Tests/PolicyOperations.Domain.Tests.csproj
+          --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./artifacts/coverage
+
+      - name: Run application tests
+        run: >-
+          dotnet test ./GestionFinanciera/tests/PolicyOperations.Application.Tests/PolicyOperations.Application.Tests.csproj
+          --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./artifacts/coverage
+
+      - name: Summarise coverage
+        if: always()
+        run: python3 ./.github/scripts/coverage_summary.py ./artifacts/coverage >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-fast
+          path: ./artifacts/coverage
+          if-no-files-found: warn
 
       - name: Audit NuGet packages
-        run: dotnet list ./GestionFinanciera/GestionFinanciera.sln package --vulnerable --include-transitive
+        run: |
+          set -o pipefail
+          dotnet list ${{ env.SOLUTION }} package --vulnerable --include-transitive | tee audit.log
+          if grep -q "has the following vulnerable packages" audit.log; then
+            echo "::error::Vulnerable NuGet packages were reported."
+            exit 1
+          fi
+
+  sqlserver-tests:
+    name: SQL Server integration and migration tests
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        # Throwaway container credentials. The instance exists only for the length of this job and
+        # is never reachable from outside the runner.
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "CiOnly!Sql2022"
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Wait for SQL Server to accept connections
+        run: |
+          for attempt in $(seq 1 60); do
+            if (echo > /dev/tcp/127.0.0.1/1433) >/dev/null 2>&1; then
+              echo "SQL Server is listening after ${attempt} attempt(s)."
+              # The engine accepts TCP slightly before it accepts logins; EF Core's transient
+              # retry strategy covers the remaining window.
+              sleep 10
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::SQL Server never started listening on port 1433."
+          exit 1
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION }} --configuration Release --no-restore
+
+      - name: Run SQL Server tests
+        env:
+          POLICY_OPERATIONS_TEST_SQLSERVER: "Server=127.0.0.1,1433;User Id=sa;Password=CiOnly!Sql2022;TrustServerCertificate=True;Encrypt=False"
+        run: >-
+          dotnet test ./GestionFinanciera/tests/PolicyOperations.IntegrationTests/PolicyOperations.IntegrationTests.csproj
+          --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./artifacts/coverage-sql
+
+      - name: Summarise coverage
+        if: always()
+        run: python3 ./.github/scripts/coverage_summary.py ./artifacts/coverage-sql >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-sqlserver
+          path: ./artifacts/coverage-sql
+          if-no-files-found: warn

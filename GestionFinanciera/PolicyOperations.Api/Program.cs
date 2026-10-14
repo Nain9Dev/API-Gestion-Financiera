@@ -10,7 +10,7 @@ using PolicyOperations.Api.Configuration;
 using PolicyOperations.Api.Demo;
 using PolicyOperations.Api.Errors;
 using PolicyOperations.Api.Health;
-using PolicyOperations.Api.OpenApi;
+using Scalar.AspNetCore;
 using PolicyOperations.Api.Security;
 using PolicyOperations.Application.Abstractions;
 using PolicyOperations.Application.Policies;
@@ -32,14 +32,25 @@ var supportedCurrencies = builder.Configuration
 var publicDemo = builder.Configuration
     .GetSection(PublicDemoOptions.SectionName)
     .Get<PublicDemoOptions>() ?? new PublicDemoOptions();
+var sqlResilience = builder.Configuration
+    .GetSection(SqlResilienceOptions.SectionName)
+    .Get<SqlResilienceOptions>() ?? new SqlResilienceOptions();
 
 builder.Services.AddDbContext<PolicyOperationsDbContext>(options =>
     options.UseSqlServer(
         connectionString,
-        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
-            maxRetryCount: 10,
-            maxRetryDelay: TimeSpan.FromSeconds(15),
-            errorNumbersToAdd: null)));
+        sqlServerOptions =>
+        {
+            sqlServerOptions.EnableRetryOnFailure(
+                maxRetryCount: sqlResilience.MaxRetryCount,
+                maxRetryDelay: TimeSpan.FromSeconds(sqlResilience.MaxRetryDelaySeconds),
+                errorNumbersToAdd: null);
+
+            // Azure SQL Serverless resumes from AutoPause on the first connection after an idle
+            // period. The provider default of 30 seconds truncates that resume and surfaces it as
+            // a failure, so the demo deployment needs an explicit, configurable budget.
+            sqlServerOptions.CommandTimeout(sqlResilience.CommandTimeoutSeconds);
+        }));
 builder.Services.AddScoped<IPolicyRepository, EfPolicyRepository>();
 builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PolicyOperationsDbContext>());
@@ -61,6 +72,23 @@ builder.Services
     .Validate(
         options => options.RequestsPerMinute is >= 1 and <= 30,
         "PublicDemo:RequestsPerMinute must be between 1 and 30.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<SqlResilienceOptions>()
+    .Bind(builder.Configuration.GetSection(SqlResilienceOptions.SectionName))
+    .Validate(
+        options => options.MaxRetryCount is >= 0 and <= 20,
+        "PolicyOperations:SqlResilience:MaxRetryCount must be between 0 and 20.")
+    .Validate(
+        options => options.MaxRetryDelaySeconds is >= 1 and <= 60,
+        "PolicyOperations:SqlResilience:MaxRetryDelaySeconds must be between 1 and 60.")
+    .Validate(
+        options => options.CommandTimeoutSeconds is >= 5 and <= 180,
+        "PolicyOperations:SqlResilience:CommandTimeoutSeconds must be between 5 and 180.")
+    .Validate(
+        options => options.RetryAfterSeconds is >= 1 and <= 300,
+        "PolicyOperations:SqlResilience:RetryAfterSeconds must be between 1 and 300.")
     .ValidateOnStart();
 
 builder.Services
@@ -110,26 +138,21 @@ builder.Services
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddCors(options =>
 {
-    options.AddSecurityDefinition(
-        JwtBearerDefaults.AuthenticationScheme,
-        new OpenApiSecurityScheme
-        {
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            Description = "Local development JWT created with dotnet user-jwts."
-        });
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    options.AddDefaultPolicy(policy =>
     {
-        [new OpenApiSecuritySchemeReference(
-            JwtBearerDefaults.AuthenticationScheme,
-            document)] = []
+        policy.WithOrigins(
+                "http://localhost:5375",
+                "http://127.0.0.1:5375",
+                "https://naindev.com",
+                "https://www.naindev.com")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .WithExposedHeaders("ETag", "Retry-After");
     });
-    options.OperationFilter<PolicyOperationFilter>();
 });
+builder.Services.AddOpenApi();
 builder.Services
     .AddHealthChecks()
     .AddCheck<SqlServerReadinessHealthCheck>(
@@ -147,36 +170,54 @@ if (builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
 
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment() || publicDemo.Enabled)
+app.MapOpenApi();
+app.MapScalarApiReference("/docs");
+app.MapGet("/swagger", () => Results.Redirect("/docs")).ExcludeFromDescription();
+
+if (!app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 
+// Baseline hardening for every response, including API and Problem Details payloads.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["Referrer-Policy"] = "no-referrer";
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+
+    if (context.Request.Path.StartsWithSegments("/demo"))
+    {
+        headers.ContentSecurityPolicy =
+            "default-src 'self'; base-uri 'self'; connect-src 'self'; " +
+            "font-src 'self'; form-action 'none'; frame-ancestors 'none'; " +
+            "img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'";
+    }
+
+    await next(context);
+});
+
 if (publicDemo.Enabled)
 {
-    app.Use(async (context, next) =>
-    {
-        if (context.Request.Path.StartsWithSegments("/demo"))
-        {
-            context.Response.Headers.ContentSecurityPolicy =
-                "default-src 'self'; base-uri 'self'; connect-src 'self'; " +
-                "font-src 'self'; form-action 'none'; frame-ancestors 'none'; " +
-                "img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'";
-            context.Response.Headers["Referrer-Policy"] = "no-referrer";
-            context.Response.Headers.XContentTypeOptions = "nosniff";
-            context.Response.Headers.XFrameOptions = "DENY";
-        }
-
-        await next(context);
-    });
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        OnPrepareResponse = context =>
+        {
+            // The page must always reflect the deployed build; its assets may be cached briefly.
+            context.Context.Response.Headers.CacheControl =
+                context.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+                    ? "no-cache"
+                    : "public, max-age=300";
+        }
+    });
 }
 
 app.UseRouting();
+app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

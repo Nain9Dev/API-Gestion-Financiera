@@ -1,9 +1,9 @@
 # Public portfolio demo
 
-- Document version: 0.2
+- Document version: 0.3
 - Status: Active evidence
-- Date: 2026-08-02
-- Governing decision: ADR-005
+- Date: 2026-09-08
+- Governing decisions: ADR-005 and ADR-006 (proposed)
 
 ## Live result
 
@@ -20,6 +20,29 @@ The deployment smoke test observed:
 The final policy status was `Cancelled`. `/health`, `/health/ready` and `/demo/` also returned `200` over HTTPS.
 
 F1 and Azure SQL Serverless can sleep or start slowly. The first request after a quiet period may take longer than later requests.
+
+## Observed cold-start defect, 2026-09-08
+
+Measured against the live deployment after an idle period:
+
+| Request | Result | Elapsed |
+|---|---|---:|
+| `POST /api/v1/demo/run` (cold) | `500 internal_error` | 71.3 s |
+| `POST /api/v1/demo/run` (immediately after) | `200 OK` | 26.7 s |
+| `GET /health` (cold) | `200 OK` | 62.2 s |
+| `GET /health/ready` (warm) | `200 OK` | 0.5 s |
+| `GET /demo/` (warm) | `200 OK` | 0.5 s |
+
+The `500` is the response a first-time visitor arriving from the portfolio received. Root cause:
+the Azure SQL Serverless resume exceeded the provider's default 30-second command timeout, the
+failure occurred inside the opportunistic cleanup that runs before any lifecycle work, and every
+unmapped exception was reported as `internal_error`.
+
+ADR-006 records the fix: an explicit command timeout, best-effort cleanup, `503` with
+`Retry-After` for recognised transient conditions, and a page that probes readiness and retries.
+
+**Status: fixed in the repository, not yet deployed.** Until the change is released, the behaviour
+above is still reproducible in production.
 
 ## Public contract
 
@@ -39,14 +62,21 @@ Representative response:
 ```json
 {
   "runId": "06C3575F",
+  "executedAtUtc": "2026-09-08T14:06:22.887+00:00",
   "dataRetentionHours": 24,
+  "totalDurationMs": 412,
+  "cleanupCompleted": true,
   "steps": [
     {
       "operation": "create_draft",
+      "method": "POST",
+      "path": "/api/v1/policies",
       "status": 201,
       "result": "succeeded",
       "resourceStatus": "Draft",
-      "errorCode": null
+      "etag": "\"AAAAAAAAH0E=\"",
+      "errorCode": null,
+      "durationMs": 118
     },
     {
       "operation": "activate_policy",
@@ -84,6 +114,20 @@ Representative response:
 ```
 
 ETags and identifiers vary on each execution. The actual response also contains the final policy and two complete transition records.
+
+Every step reports the HTTP method, the path, the status, the resulting resource status, the ETag
+and the server-measured duration. `cleanupCompleted` is `false` when opportunistic cleanup was
+skipped; the lifecycle evidence is unaffected.
+
+### Transient unavailability
+
+When the database reports a recognised transient condition that survives the retry strategy:
+
+- status: `503 Service Unavailable`;
+- stable code: `service_unavailable`;
+- `Retry-After: 20` by default, configurable through `PolicyOperations:SqlResilience`.
+
+`500 internal_error` now means a defect, not a sleeping database.
 
 ### Rate limit
 
@@ -125,6 +169,15 @@ PublicDemo__RetentionHours=24
 PublicDemo__RequestsPerMinute=5
 PolicyOperations__SupportedCurrencies__0=EUR
 AllowedHosts=nain-policy-demo-api.azurewebsites.net
+```
+
+Optional resilience settings, with the defaults applied when they are absent:
+
+```text
+PolicyOperations__SqlResilience__MaxRetryCount=10
+PolicyOperations__SqlResilience__MaxRetryDelaySeconds=15
+PolicyOperations__SqlResilience__CommandTimeoutSeconds=60
+PolicyOperations__SqlResilience__RetryAfterSeconds=20
 ```
 
 `Database__ApplyMigrationsOnStartup` was enabled for the first deployment and disabled after all migrations and readiness checks succeeded. A future deployment containing a migration must enable it deliberately for that reviewed release and disable it again after verification.

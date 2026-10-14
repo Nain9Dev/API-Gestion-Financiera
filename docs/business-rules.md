@@ -1,14 +1,16 @@
 # Business rules and API contract
 
-- Document version: 0.5
+- Document version: 0.6
 - Status: Active
-- Date: 2026-08-02
-- Governing decisions: ADR-001, ADR-002 and ADR-003
+- Date: 2026-09-08
+- Governing decisions: ADR-001, ADR-002, ADR-003 and ADR-006 (proposed)
 
 ## Status meanings
 
 - `Approved implemented`: authoritative and verified in code/tests.
 - `Approved pending`: authoritative direction, not yet implemented.
+- `Proposed implemented`: the code implements this rule, but the governing ADR is still
+  `Proposed`. It is not authoritative until the decision owner approves it.
 - `TBD`: no implementation authority; do not infer.
 - `Historical`: behavior from the replaced pre-1.0 prototype.
 
@@ -125,6 +127,21 @@ The policy update and audit insert use one EF Core `SaveChanges` transaction. No
 | `DEMO-007` | Before a run, only expired policies and transitions in the configured demo organization are deleted | Approved implemented |
 | `DEMO-008` | The initial public-demo retention is 24 hours and the page uses no-store responses | Approved implemented |
 
+### Free-tier operating behavior (ADR-006, proposed)
+
+| ID | Rule | State |
+|---|---|---|
+| `OPS-001` | A recognised transient database condition returns `503 service_unavailable` with `Retry-After`; `500 internal_error` is reserved for defects | Proposed implemented |
+| `OPS-002` | Public-demo cleanup is best effort: a failure is logged, the run continues, and the response reports `cleanupCompleted` | Proposed implemented |
+| `OPS-003` | Each public-demo step reports its HTTP method, path and server-measured duration; the run reports `totalDurationMs` | Proposed implemented |
+| `OPS-004` | Every response carries `X-Content-Type-Options`, `X-Frame-Options` and `Referrer-Policy` | Proposed implemented |
+| `OPS-005` | SQL retry count, retry delay, command timeout and `Retry-After` come from validated configuration | Proposed implemented |
+
+The recognised transient set is explicit and lives in `SqlTransientErrors`. Widening it is a
+contract change, because every number added moves a class of failure from "defect" to "retry
+later". `OPS-002` relaxes only the guarantee that cleanup runs; `DEMO-007` still constrains what
+cleanup may delete.
+
 The façade is portfolio evidence, not an identity provider or customer API contract. A visitor cannot enter a name, document, contact detail, organization, amount, reason or arbitrary free text.
 
 ## Implemented API
@@ -139,7 +156,7 @@ The façade is portfolio evidence, not an identity provider or customer API cont
 | `GET` | `/api/v1/policies/{policyId}/transitions` | `200` | `401`, `403`, `404` |
 | `GET` | `/health` | `200` | Process liveness only |
 | `GET` | `/health/ready` | `200` | SQL Server connectivity; `503` when unavailable |
-| `POST` | `/api/v1/demo/run` | `200` | Anonymous only when enabled; `404`, `429`, `500` |
+| `POST` | `/api/v1/demo/run` | `200` | Anonymous only when enabled; `400`, `404`, `429`, `503` |
 
 Stable error codes include:
 
@@ -152,7 +169,9 @@ Stable error codes include:
 - `insured_party_reference_required`, `insured_party_reference_too_long`;
 - `coverage_period_invalid`;
 - `cancellation_reason_required`, `cancellation_reason_too_long`;
-- `validation_failed`, `internal_error`.
+- `validation_failed`, `internal_error`;
+- `public_demo_disabled`, `public_demo_body_not_allowed`, `public_demo_rate_limited`;
+- `service_unavailable` (ADR-006, proposed).
 
 ## Postman-ready lifecycle example
 

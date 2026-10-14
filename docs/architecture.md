@@ -1,9 +1,9 @@
 # Architecture
 
-- Document version: 0.6
+- Document version: 0.7
 - Status: Approved and implemented for the local and live public-demo boundaries
-- Date: 2026-08-02
-- Governing ADRs: ADR-002, ADR-003 and ADR-005
+- Date: 2026-09-08
+- Governing ADRs: ADR-002, ADR-003, ADR-005 and ADR-006 (proposed)
 
 ## Decision
 
@@ -21,8 +21,9 @@ JWT client / Swagger                 Anonymous portfolio visitor
             -> EF Core
                 -> SQL Server
 
-PolicyOperations.Domain.Tests -> Domain
-PolicyOperations.IntegrationTests -> API + Infrastructure + SQL Server
+PolicyOperations.Domain.Tests      -> Domain
+PolicyOperations.Application.Tests -> Application (fakes, no database)
+PolicyOperations.IntegrationTests  -> API + Infrastructure + SQL Server
 ```
 
 | Component | Responsibility | Explicit exclusion |
@@ -43,6 +44,9 @@ PolicyOperations.IntegrationTests -> API + Infrastructure + SQL Server
 - `dotnet user-jwts` is used only as the local issuer.
 - SQL constraints remain authoritative under concurrent or non-API writes.
 - The public façade reuses `PolicyService`; it does not duplicate lifecycle rules.
+- Provider knowledge stays in Infrastructure. `SqlTransientErrors` owns the set of SQL Server and
+  Azure SQL error numbers that mean "retry later"; the API layer asks it a question instead of
+  embedding provider constants.
 
 ## Technology baseline
 
@@ -54,6 +58,8 @@ PolicyOperations.IntegrationTests -> API + Infrastructure + SQL Server
 | Persistence | EF Core SQL Server 10.0.10 | Implemented |
 | OpenAPI UI | Swashbuckle 10.2.3 | Implemented, MIT |
 | Unit tests | xUnit 2.9.3 and runner 3.1.5 | Implemented |
+| Coverage collection | coverlet.collector 10.0.1 | Implemented, MIT |
+| CI database | `mcr.microsoft.com/mssql/server:2022-latest` service container | Implemented |
 | Test platform | Microsoft.NET.Test.Sdk 18.8.1 | Implemented |
 | Local database | SQL Server 2025 Standard Developer 17.0.4065.4 | Verified, development/test only |
 
@@ -121,6 +127,23 @@ EF Core's relational save transaction commits or rolls back the policy update an
 
 SQL Server connections use EF Core's transient retry strategy for Azure SQL Serverless wake-up and short service interruptions. This does not retry lifecycle commands after a completed or uncertain HTTP response. The public-demo cleanup owns an explicit transaction, so its delete operations execute inside the same EF strategy and are retried as one atomic unit.
 
+## Free-tier resilience
+
+The public deployment runs on infrastructure that is allowed to be asleep. Azure SQL Free uses
+`AutoPause`, so the first connection after an idle period triggers a resume that can take tens of
+seconds. The architecture treats that as an operating condition, not a fault:
+
+| Layer | Behaviour |
+|---|---|
+| Configuration | `PolicyOperations:SqlResilience` supplies retry count, retry delay, command timeout (default 60 s) and the advertised `Retry-After`. All four are validated on start |
+| Infrastructure | `SqlTransientErrors` recognises the transient condition; EF Core retries inside its execution strategy |
+| API | A transient failure that survives the retries becomes `503 service_unavailable` with `Retry-After`, never `500` |
+| Demo façade | Cleanup is best effort and reports `cleanupCompleted`; the lifecycle evidence is never blocked by housekeeping |
+| Page | Probes `/health/ready` first, shows elapsed time, and retries a bounded number of times on `503` |
+
+The command timeout is the setting that matters most: the provider default of 30 seconds is
+shorter than an observed resume, which turned an expected wait into a failed request.
+
 ## Migration strategy
 
 Migration history is preserved:
@@ -139,6 +162,8 @@ Migration commands require `POLICY_OPERATIONS_MIGRATIONS_SQLSERVER`; there is no
 - Problem Details returns stable English `code` and `traceId`.
 - Authorization failures return sanitized `401`/`403` bodies.
 - Domain validation uses `400`, missing scoped resources `404`, state/number conflicts `409`, stale version `412`, and missing precondition `428`.
+- A recognised transient database condition returns `503 service_unavailable` with `Retry-After`;
+  it is logged as a warning, not as a defect.
 - Unexpected errors are logged internally and return `internal_error` without exception details.
 - JSON enum values and public identifiers remain English.
 - The public-demo page is same-origin, sends no credentials and receives no-store responses.
@@ -150,9 +175,14 @@ Migration commands require `POLICY_OPERATIONS_MIGRATIONS_SQLSERVER`; there is no
 
 - Release build: 0 warnings and 0 errors.
 - 22 domain tests.
-- 17 API tests covering authentication, roles, scope, lifecycle, public demo, readiness, concurrency and audit.
+- 21 application tests covering the currency allow-list, pagination limits, ETag shape, the
+  stale-version pre-check and audit orchestration, with no database.
+- 21 API tests covering authentication, roles, scope, lifecycle, public demo, readiness,
+  concurrency, audit, security headers and demo evidence.
 - 4 real SQL migration tests covering preservation and forward/down refusal.
-- 43 tests in the baseline suite; 21 use SQL Server 2025.
+- 68 tests in the baseline suite; 21 use SQL Server 2025.
+- Continuous integration executes the SQL Server suite against a real SQL Server service
+  container, so the "verified against real SQL Server" claim is proved by the pipeline.
 - Real local JWT smoke: create Draft, activate, cancel and read two transitions.
 - Real browser smoke: one click produced the expected five-step result and two transitions.
 - Test database deletion is limited by explicit prefixes.

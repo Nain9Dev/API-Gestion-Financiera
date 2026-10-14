@@ -1,17 +1,25 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using PolicyOperations.Api.Configuration;
 using PolicyOperations.Application.Policies;
 using PolicyOperations.Domain.Policies;
+using PolicyOperations.Infrastructure.Persistence;
 
 namespace PolicyOperations.Api.Errors;
 
 public sealed partial class ApiExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<ApiExceptionHandler> _logger;
+    private readonly SqlResilienceOptions _sqlResilience;
 
-    public ApiExceptionHandler(ILogger<ApiExceptionHandler> logger)
+    public ApiExceptionHandler(
+        ILogger<ApiExceptionHandler> logger,
+        IOptions<SqlResilienceOptions> sqlResilience)
     {
         _logger = logger;
+        _sqlResilience = sqlResilience.Value;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -21,7 +29,22 @@ public sealed partial class ApiExceptionHandler : IExceptionHandler
     {
         var error = Map(exception);
 
-        if (error.Status >= StatusCodes.Status500InternalServerError)
+        if (error.Status == StatusCodes.Status500InternalServerError &&
+            SqlTransientErrors.IsTransient(exception))
+        {
+            error = CreateTransientDatabaseError();
+        }
+
+        if (error.Status == StatusCodes.Status503ServiceUnavailable)
+        {
+            httpContext.Response.Headers.RetryAfter =
+                _sqlResilience.RetryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+            LogDatabaseUnavailable(
+                _logger,
+                httpContext.TraceIdentifier,
+                exception);
+        }
+        else if (error.Status >= StatusCodes.Status500InternalServerError)
         {
             LogUnhandledException(
                 _logger,
@@ -113,6 +136,16 @@ public sealed partial class ApiExceptionHandler : IExceptionHandler
         };
     }
 
+    private static ApiError CreateTransientDatabaseError()
+    {
+        return new ApiError(
+            "https://tools.ietf.org/html/rfc9110#section-15.6.4",
+            StatusCodes.Status503ServiceUnavailable,
+            "Database is temporarily unavailable.",
+            "The free-tier database is resuming or busy. Retry in a few seconds.",
+            "service_unavailable");
+    }
+
     [LoggerMessage(
         EventId = 1000,
         Level = LogLevel.Error,
@@ -130,6 +163,15 @@ public sealed partial class ApiExceptionHandler : IExceptionHandler
         ILogger logger,
         string errorCode,
         string traceId);
+
+    [LoggerMessage(
+        EventId = 1002,
+        Level = LogLevel.Warning,
+        Message = "Database was temporarily unavailable. TraceId: {TraceId}")]
+    private static partial void LogDatabaseUnavailable(
+        ILogger logger,
+        string traceId,
+        Exception exception);
 
     private sealed record ApiError(
         string Type,

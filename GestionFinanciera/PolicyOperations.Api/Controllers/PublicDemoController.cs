@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -46,6 +47,7 @@ public sealed partial class PublicDemoController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<PublicDemoRunResponse>> Run(
         CancellationToken cancellationToken)
     {
@@ -81,7 +83,8 @@ public sealed partial class PublicDemoController : ControllerBase
         }
 
         var now = _timeProvider.GetUtcNow();
-        await _dataPruner.PruneAsync(
+        var runStopwatch = Stopwatch.StartNew();
+        var cleanupCompleted = await _dataPruner.TryPruneAsync(
             _options.OrganizationId,
             now.AddHours(-_options.RetentionHours),
             cancellationToken);
@@ -96,14 +99,18 @@ public sealed partial class PublicDemoController : ControllerBase
             DemoActorSubject,
             HttpContext.TraceIdentifier);
 
+        var stepStopwatch = Stopwatch.StartNew();
         var draft = await _policyService.CreateAsync(
             _options.OrganizationId,
             policyNumber,
             DemoInsuredAmount,
             DemoCurrency,
             cancellationToken);
+        var createDurationMs = stepStopwatch.ElapsedMilliseconds;
         var draftVersion = Convert.FromBase64String(draft.Version);
+        var policyPath = $"/api/v1/policies/{draft.Id}";
 
+        stepStopwatch.Restart();
         var active = await _policyService.ActivateAsync(
             commandContext,
             draft.Id,
@@ -112,8 +119,10 @@ public sealed partial class PublicDemoController : ControllerBase
             coverageStartDate,
             coverageEndDate,
             cancellationToken);
+        var activateDurationMs = stepStopwatch.ElapsedMilliseconds;
 
         var staleUpdateRejected = false;
+        stepStopwatch.Restart();
 
         try
         {
@@ -129,60 +138,82 @@ public sealed partial class PublicDemoController : ControllerBase
             staleUpdateRejected = true;
         }
 
+        var staleDurationMs = stepStopwatch.ElapsedMilliseconds;
+
         if (!staleUpdateRejected)
         {
             throw new InvalidOperationException(
                 "The public demo expected the stale policy version to be rejected.");
         }
 
+        stepStopwatch.Restart();
         var cancelled = await _policyService.CancelAsync(
             commandContext,
             draft.Id,
             Convert.FromBase64String(active.Version),
             "Synthetic public demo request",
             cancellationToken);
+        var cancelDurationMs = stepStopwatch.ElapsedMilliseconds;
+
+        stepStopwatch.Restart();
         var transitions = await _policyService.ListTransitionsAsync(
             _options.OrganizationId,
             draft.Id,
             cancellationToken);
+        var auditDurationMs = stepStopwatch.ElapsedMilliseconds;
 
         var steps = new[]
         {
             new PublicDemoStepResponse(
                 "create_draft",
+                HttpMethods.Post,
+                "/api/v1/policies",
                 StatusCodes.Status201Created,
                 "succeeded",
                 draft.Status.ToString(),
                 PolicyEtag.Format(draft.Version),
-                null),
+                null,
+                createDurationMs),
             new PublicDemoStepResponse(
                 "activate_policy",
+                HttpMethods.Post,
+                $"{policyPath}/activate",
                 StatusCodes.Status200OK,
                 "succeeded",
                 active.Status.ToString(),
                 PolicyEtag.Format(active.Version),
-                null),
+                null,
+                activateDurationMs),
             new PublicDemoStepResponse(
                 "reject_stale_update",
+                HttpMethods.Post,
+                $"{policyPath}/cancel",
                 StatusCodes.Status412PreconditionFailed,
                 "rejected_as_expected",
                 active.Status.ToString(),
                 PolicyEtag.Format(draft.Version),
-                "concurrency_conflict"),
+                "concurrency_conflict",
+                staleDurationMs),
             new PublicDemoStepResponse(
                 "cancel_policy",
+                HttpMethods.Post,
+                $"{policyPath}/cancel",
                 StatusCodes.Status200OK,
                 "succeeded",
                 cancelled.Status.ToString(),
                 PolicyEtag.Format(cancelled.Version),
-                null),
+                null,
+                cancelDurationMs),
             new PublicDemoStepResponse(
                 "read_audit_trail",
+                HttpMethods.Get,
+                $"{policyPath}/transitions",
                 StatusCodes.Status200OK,
                 transitions.Count == 2 ? "succeeded" : "unexpected_result",
                 null,
                 null,
-                null)
+                null,
+                auditDurationMs)
         };
 
         LogPublicDemoCompleted(_logger, runId, cancelled.Id, transitions.Count);
@@ -191,6 +222,8 @@ public sealed partial class PublicDemoController : ControllerBase
             runId,
             now,
             _options.RetentionHours,
+            runStopwatch.ElapsedMilliseconds,
+            cleanupCompleted,
             steps,
             cancelled,
             transitions));

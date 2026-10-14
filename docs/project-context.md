@@ -1,8 +1,8 @@
 # Project context
 
-- Document version: 0.6
+- Document version: 0.7
 - Status: Active
-- Date: 2026-08-02
+- Date: 2026-09-08
 - Scope: Product, authority, readiness, boundaries and blockers
 - Owner and approval authority: Aitor Nain Mendoza Vallejo
 
@@ -62,7 +62,13 @@ The customer hypothesis remains a small insurance brokerage or insurtech operati
 - limit public-demo runs, prune only expired demo-organization data and expose SQL readiness separately;
 - retry transient SQL Serverless failures while keeping cleanup deletes in one retryable transaction;
 - run the public demo on App Service F1 and Azure SQL Free with HTTPS and an exhaustion cutoff;
-- verify behavior against SQL Server 2025 Standard Developer.
+- verify behavior against SQL Server 2025 Standard Developer;
+- return `503 service_unavailable` with `Retry-After` when the free-tier database is resuming,
+  keeping `500 internal_error` for real defects (ADR-006, proposed);
+- continue a public-demo run when opportunistic cleanup fails, and report `cleanupCompleted`;
+- report per-step HTTP method, path, ETag and server-measured duration in the demo response;
+- apply baseline security headers to every response;
+- prove the SQL Server suite in continuous integration against a real SQL Server container.
 
 The pre-1.0 `/api/policies` prototype was intentionally replaced by `/api/v1/policies` before known external consumers existed.
 
@@ -111,11 +117,15 @@ No paid service or automatic conversion to metered usage is authorized. The depl
 
 ## 8. Current verification
 
-- Release build for version 0.6: 0 warnings, 0 errors.
-- Domain tests for version 0.6: 22 passed.
-- SQL Server API/security/OpenAPI tests for version 0.6: 17 passed.
-- SQL Server migration tests for version 0.6: 4 passed.
-- Total for version 0.6: 43 passed; 21 use real SQL Server 2025.
+- Release build for version 0.7: 0 warnings, 0 errors.
+- Domain tests for version 0.7: 22 passed.
+- Application tests for version 0.7: 21 passed, no database required.
+- SQL Server API/security/OpenAPI/demo tests for version 0.7: 21 passed.
+- SQL Server migration tests for version 0.7: 4 passed.
+- Total for version 0.7: 68 passed; 21 use real SQL Server 2025 (`17.0.4065.4`).
+- Live measurement on 2026-09-08 found the deployed public demo returning `500` on a cold run
+  after 71.3 s, and `200` after 26.7 s once warm. The fix is implemented and verified locally but
+  **not deployed**, so the defect is still reproducible in production.
 - The changed retry and cleanup path was exercised by the live Azure run: five successful expected steps, final `Cancelled` policy and two transitions.
 - Legacy active/cancelled rows and timestamps remain preserved by the lifecycle migration.
 - Duplicate legacy normalization stops before schema replacement.
@@ -145,11 +155,14 @@ No paid service or automatic conversion to metered usage is authorized. The depl
 | `OPEN-009` | Audit retention, export and support access | Blocks customer pilot | Open |
 | `OPEN-010` | Measured capacity envelope | Blocks scalability claims | Open |
 | `OPEN-011` | Customer hosting, licensed database, backup and restore target | Blocks customer pilot | Open |
+| `OPEN-012` | Mirror the demo page statically on `naindev.com` so content appears before the backend wakes; needs a CORS decision | Blocks removing the visible cold start | Open |
+| `OPEN-013` | Rename the repository to match the product; would break the portfolio's recorded link | Cosmetic; owner decision | Open |
 
 ## 10. Change history
 
 | Version | Date | Change | Authority |
 |---:|---|---|---|
+| 0.7 | 2026-09-08 | Recorded the measured cold-start defect, the free-tier resilience fix, the new evidence surface and CI proof against a real SQL Server | Implemented under ADR-006, pending owner approval |
 | 0.6 | 2026-08-02 | Recorded the live zero-cost Azure deployment, alert boundary and public smoke evidence | Aitor Nain Mendoza Vallejo |
 | 0.5 | 2026-08-02 | Added the approved one-click public-demo boundary, local evidence and Azure subscription blocker | Aitor Nain Mendoza Vallejo |
 | 0.4 | 2026-08-02 | Clarified Swagger ETag input and aligned OpenAPI response media types | Aitor Nain Mendoza Vallejo |

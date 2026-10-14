@@ -3,51 +3,154 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Demo pública de la API de operaciones de pólizas de NainDev.">
-    <meta name="referrer" content="no-referrer">
-    <link rel="stylesheet" href="/demo/demo.css">
     <title>Demo API de pólizas | NainDev</title>
+    <meta name="description" content="Ejecuta en vivo un ciclo completo de póliza sobre .NET 10 y SQL Server: creación, activación, rechazo de escritura obsoleta por ETag, cancelación y auditoría.">
+    <meta name="referrer" content="no-referrer">
+    <meta name="color-scheme" content="dark light">
+    <link rel="canonical" href="https://nain-policy-demo-api.azurewebsites.net/demo/">
+    <link rel="icon" type="image/svg+xml" href="/demo/favicon.svg">
+    <link rel="stylesheet" href="/demo/demo.css">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NainDev">
+    <meta property="og:locale" content="es_ES">
+    <meta property="og:title" content="Demo en vivo: API de operaciones de pólizas">
+    <meta property="og:description" content="Cinco pasos reales contra SQL Server: Draft, activación, rechazo de ETag obsoleto, cancelación y auditoría. Sin registro.">
+    <meta property="og:url" content="https://nain-policy-demo-api.azurewebsites.net/demo/">
+    <meta property="og:image" content="https://www.naindev.com/assets/images/og-cover-v2.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Demo en vivo: API de operaciones de pólizas">
+    <meta name="twitter:description" content="Cinco pasos reales contra SQL Server: Draft, activación, rechazo de ETag obsoleto, cancelación y auditoría. Sin registro.">
+    <meta name="twitter:image" content="https://www.naindev.com/assets/images/og-cover-v2.png">
   </head>
   <body>
+    <a class="skip-link" href="#run-demo">Saltar al botón de ejecución</a>
+
     <main class="shell">
       <header class="hero">
-        <a class="back-link" href="https://www.naindev.com/#projects">← Volver al portfolio</a>
-        <p class="eyebrow">Demo backend · .NET 10 · SQL Server</p>
+        <a class="back-link" href="https://www.naindev.com/#projects">&larr; Volver a naindev.com</a>
+        <p class="eyebrow">Demo backend &middot; .NET 10 &middot; EF Core &middot; SQL Server</p>
         <h1>Ejecuta un ciclo completo de póliza</h1>
         <p class="summary">
-          Una ejecución crea una póliza sintética, la activa, demuestra el rechazo de una versión obsoleta,
-          la cancela y recupera su historial de auditoría.
+          Una ejecución crea una póliza sintética, la activa, demuestra el rechazo de una escritura
+          con versión obsoleta, la cancela y recupera su historial de auditoría. No es una
+          simulación en el navegador: cada paso es una operación real contra SQL Server.
         </p>
+
         <div class="actions">
-          <button id="run-demo" type="button">Ejecutar demo ahora</button>
-          <a href="/swagger" target="_blank" rel="noopener noreferrer">Ver todos los endpoints ↗</a>
-          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer">Revisar código ↗</a>
+          <button id="run-demo" type="button" disabled>Comprobando backend…</button>
+          <a href="/swagger" target="_blank" rel="noopener noreferrer">Ver todos los endpoints &#8599;</a>
+          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer">Revisar código &#8599;</a>
+          <a href="https://www.naindev.com/servicios/sistemas-criticos-dotnet" target="_blank" rel="noopener noreferrer">Servicio relacionado &#8599;</a>
         </div>
-        <p class="boundary">No necesitas registro ni descargar nada. La demo no acepta datos personales y elimina automáticamente los registros sintéticos antiguos.</p>
+
+        <p id="backend-state" class="backend-state" role="status" aria-live="polite" data-state="probing">
+          Comprobando si el backend gratuito está despierto…
+        </p>
+
+        <p class="boundary">
+          Sin registro ni descargas. La demo no acepta ningún dato del visitante, usa una
+          organización dedicada con datos sintéticos y elimina automáticamente los registros
+          caducados.
+        </p>
       </header>
 
-      <section class="result-panel" aria-labelledby="result-title">
-        <div class="result-heading">
+      <section class="panel" aria-labelledby="result-title">
+        <div class="panel-heading">
           <div>
             <p class="eyebrow">Evidencia observable</p>
             <h2 id="result-title">Resultado de la ejecución</h2>
           </div>
-          <p id="run-status" role="status" aria-live="polite">Lista para ejecutar.</p>
+          <p id="run-status" class="run-status" role="status" aria-live="polite">Lista para ejecutar.</p>
         </div>
 
         <ol id="steps" class="steps">
-          <li><span>01</span><strong>Crear Draft</strong><small>Pendiente</small></li>
-          <li><span>02</span><strong>Activar póliza</strong><small>Pendiente</small></li>
-          <li><span>03</span><strong>Rechazar ETag obsoleto</strong><small>Pendiente</small></li>
-          <li><span>04</span><strong>Cancelar póliza</strong><small>Pendiente</small></li>
-          <li><span>05</span><strong>Leer auditoría</strong><small>Pendiente</small></li>
+          <li data-state="pending">
+            <span class="step-index">01</span>
+            <span class="step-body">
+              <strong>Crear Draft</strong>
+              <code class="step-route">POST /api/v1/policies</code>
+            </span>
+            <span class="step-evidence">Pendiente</span>
+          </li>
+          <li data-state="pending">
+            <span class="step-index">02</span>
+            <span class="step-body">
+              <strong>Activar póliza</strong>
+              <code class="step-route">POST /api/v1/policies/{id}/activate</code>
+            </span>
+            <span class="step-evidence">Pendiente</span>
+          </li>
+          <li data-state="pending">
+            <span class="step-index">03</span>
+            <span class="step-body">
+              <strong>Rechazar ETag obsoleto</strong>
+              <code class="step-route">POST /api/v1/policies/{id}/cancel</code>
+            </span>
+            <span class="step-evidence">Pendiente</span>
+          </li>
+          <li data-state="pending">
+            <span class="step-index">04</span>
+            <span class="step-body">
+              <strong>Cancelar póliza</strong>
+              <code class="step-route">POST /api/v1/policies/{id}/cancel</code>
+            </span>
+            <span class="step-evidence">Pendiente</span>
+          </li>
+          <li data-state="pending">
+            <span class="step-index">05</span>
+            <span class="step-body">
+              <strong>Leer auditoría</strong>
+              <code class="step-route">GET /api/v1/policies/{id}/transitions</code>
+            </span>
+            <span class="step-evidence">Pendiente</span>
+          </li>
         </ol>
+
+        <dl id="run-metrics" class="metrics" hidden>
+          <div><dt>Identificador de ejecución</dt><dd id="metric-run-id">—</dd></div>
+          <div><dt>Tiempo total en servidor</dt><dd id="metric-duration">—</dd></div>
+          <div><dt>Transiciones auditadas</dt><dd id="metric-transitions">—</dd></div>
+          <div><dt>Retención de datos</dt><dd id="metric-retention">—</dd></div>
+        </dl>
 
         <details id="raw-result" hidden>
           <summary>Ver respuesta JSON completa</summary>
           <pre><code id="raw-json"></code></pre>
         </details>
       </section>
+
+      <section class="panel" aria-labelledby="verify-title">
+        <p class="eyebrow">Verificación independiente</p>
+        <h2 id="verify-title">Reproduce la ejecución desde tu terminal</h2>
+        <p class="summary">
+          El endpoint es anónimo, no acepta cuerpo de petición y está limitado por ventana fija.
+          No hace falta confiar en esta página.
+        </p>
+        <div class="code-block">
+          <pre><code id="curl-command">curl -i -X POST "https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run" -H "Accept: application/json"</code></pre>
+          <button id="copy-curl" type="button" class="ghost">Copiar comando</button>
+        </div>
+        <p id="copy-feedback" class="copy-feedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <footer class="page-footer">
+        <p>
+          Plan gratuito por diseño: Azure App Service F1 y Azure SQL Free con
+          <code>AutoPause</code>. La primera petición tras un periodo de inactividad despierta la
+          base de datos y puede tardar bastante más que las siguientes. No hay SLA y el coste
+          incremental autorizado es 0&nbsp;EUR.
+        </p>
+        <p>
+          Datos sintéticos. Sin datos personales. Los endpoints de negocio siguen protegidos por
+          JWT y roles.
+          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera/blob/main/docs/public-demo.md" target="_blank" rel="noopener noreferrer">Límites y configuración verificada &#8599;</a>
+        </p>
+        <p class="signature">
+          <a href="https://www.naindev.com/" target="_blank" rel="noopener noreferrer">naindev.com</a>
+          &middot; Aitor Nain &middot; Arquitectura backend .NET
+        </p>
+      </footer>
     </main>
 
     <script type="module" src="/demo/demo.js"></script>

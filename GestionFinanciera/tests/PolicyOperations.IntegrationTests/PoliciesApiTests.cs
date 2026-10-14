@@ -189,11 +189,12 @@ public sealed class PoliciesApiTests : IAsyncLifetime
         await dbContext.SaveChangesAsync();
 
         var pruner = scope.ServiceProvider.GetRequiredService<PublicDemoDataPruner>();
-        await pruner.PruneAsync(
+        var cleanupCompleted = await pruner.TryPruneAsync(
             PublicDemoOrganizationId,
             now.AddHours(-24),
             CancellationToken.None);
 
+        Assert.True(cleanupCompleted);
         Assert.False(await dbContext.Policies
             .AsNoTracking()
             .AnyAsync(policy => policy.Id == expiredPolicy.Id));
@@ -203,6 +204,75 @@ public sealed class PoliciesApiTests : IAsyncLifetime
         Assert.True(await dbContext.Policies
             .AsNoTracking()
             .AnyAsync(policy => policy.Id == otherOrganizationPolicy.Id));
+    }
+
+    [SqlServerFact]
+    public async Task PublicDemoRunReportsPerStepRouteStatusAndServerTiming()
+    {
+        using var anonymousClient = Factory.CreateClient();
+
+        var response = await anonymousClient.PostAsync("/api/v1/demo/run", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var contentStream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(contentStream);
+        var root = document.RootElement;
+        var steps = root.GetProperty("steps").EnumerateArray().ToArray();
+
+        Assert.True(root.GetProperty("cleanupCompleted").GetBoolean());
+        Assert.True(root.GetProperty("totalDurationMs").GetInt64() >= 0);
+        Assert.Equal(5, steps.Length);
+        Assert.All(
+            steps,
+            step =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(step.GetProperty("method").GetString()));
+                Assert.StartsWith("/api/v1/policies", step.GetProperty("path").GetString());
+                Assert.True(step.GetProperty("durationMs").GetInt64() >= 0);
+            });
+        Assert.Equal("POST", steps[0].GetProperty("method").GetString());
+        Assert.Equal("/api/v1/policies", steps[0].GetProperty("path").GetString());
+        Assert.EndsWith("/transitions", steps[4].GetProperty("path").GetString());
+        Assert.Equal("GET", steps[4].GetProperty("method").GetString());
+    }
+
+    [SqlServerFact]
+    public async Task EveryResponseCarriesTheBaselineSecurityHeaders()
+    {
+        var policyResponse = await Client.GetAsync("/api/v1/policies");
+
+        Assert.Equal(HttpStatusCode.OK, policyResponse.StatusCode);
+        Assert.Equal("nosniff", Assert.Single(policyResponse.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("DENY", Assert.Single(policyResponse.Headers.GetValues("X-Frame-Options")));
+        Assert.Equal("no-referrer", Assert.Single(policyResponse.Headers.GetValues("Referrer-Policy")));
+        Assert.False(policyResponse.Headers.Contains("Content-Security-Policy"));
+    }
+
+    [SqlServerFact]
+    public async Task DemoPageIsServedWithARestrictiveContentSecurityPolicy()
+    {
+        using var anonymousClient = Factory.CreateClient();
+
+        var response = await anonymousClient.GetAsync("/demo/index.html");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var contentSecurityPolicy = Assert.Single(
+            response.Headers.GetValues("Content-Security-Policy"));
+        Assert.Contains("default-src 'self'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains("object-src 'none'", contentSecurityPolicy, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TransientDatabaseConditionsAreRecognisedAndOtherFailuresAreNot()
+    {
+        Assert.True(SqlTransientErrors.IsTransient(new TimeoutException()));
+        Assert.True(SqlTransientErrors.IsTransient(
+            new InvalidOperationException("wrapper", new TimeoutException())));
+        Assert.False(SqlTransientErrors.IsTransient(null));
+        Assert.False(SqlTransientErrors.IsTransient(new InvalidOperationException("boom")));
+        Assert.False(SqlTransientErrors.IsTransient(new PolicyNotFoundException()));
     }
 
     [SqlServerFact]

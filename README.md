@@ -1,5 +1,6 @@
 # NainPolicy · Insurance Policy Operations Platform
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-policy.naindev.com-0284c7?style=flat-square&logo=google-chrome&logoColor=white)](https://policy.naindev.com/)
 [![ci](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml/badge.svg)](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml)
 [![codeql](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/codeql.yml/badge.svg)](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/codeql.yml)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
@@ -10,15 +11,15 @@ Este repositorio gestiona de forma determinista el ciclo de vida de pólizas ase
 
 El objetivo no es aparentar un SaaS terminado, sino demostrar con código limpio, arquitectura desacoplada y tests verificables cómo diseño sistemas backend empresariales con .NET 10 y frontends reactivos con Vue 3 + TypeScript. Forma parte de la marca técnica de [naindev.com](https://www.naindev.com/) bajo la denominación **NainPolicy**.
 
-> Estado: **demo técnica pública y verificada con datos sintéticos**. Puede probarse por HTTPS sin instalar nada o en local mediante la suite interactiva `PolicyOperations.Client` (puerto 5375). No está autorizada para clientes ni datos personales reales.
+> Estado: **demo técnica pública y verificada con datos sintéticos**. Puede probarse por HTTPS sin instalar nada en [https://policy.naindev.com](https://policy.naindev.com) o en local mediante la suite interactiva `PolicyOperations.Client` (puerto 5375). No está autorizada para clientes ni datos personales reales.
 
 ## Qué se puede comprobar en 60 segundos
 
 | Quiero… | Dónde |
 |---|---|
-| Explorar el showcase interactivo (Vue 3) | `PolicyOperations.Client` en puerto `5375` (workbench de ciclo de vida, lab de concurrencia y telemetría) |
+| Explorar el showcase interactivo (Vue 3) | Demo en vivo en [https://policy.naindev.com](https://policy.naindev.com) o local en puerto `5375` (workbench de ciclo de vida, lab de concurrencia y telemetría) |
 | Ver la documentación de la API | [Scalar Docs](http://localhost:8110/docs) (OpenAPI .NET 10 nativo en `/docs`) |
-| Ver el flujo funcionando online | [Demo pública](https://nain-policy-demo-api.azurewebsites.net/demo/) — un clic, sin registro |
+| Ver el flujo funcionando online | [Demo pública](https://policy.naindev.com/) — un clic, sin registro |
 | Reproducirlo yo mismo | `curl -i -X POST "https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run" -H "Accept: application/json"` |
 | Ver que las pruebas son reales | [Workflow de CI](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml): la suite de integración corre contra un SQL Server real en cada push |
 | Ver qué regla cubre cada test | [docs/traceability.md](docs/traceability.md) |

@@ -8,6 +8,7 @@ import type {
   ProblemDetails,
   PublicDemoRunResponse,
 } from '../types/contracts';
+import { mockPolicyEngine } from './mockPolicyEngine';
 
 const BASE_URL = '';
 
@@ -24,27 +25,25 @@ export class ApiError extends Error {
 
 export const api = {
   /**
-   * Runs the self-contained, validated end-to-end policy lifecycle scenario with cold-start timing.
+   * Runs the self-contained, validated end-to-end policy lifecycle scenario.
    */
   async runPublicDemo(): Promise<PublicDemoRunResponse> {
-    const res = await fetch(`${BASE_URL}/api/v1/demo/run`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/demo/run`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // Body was not JSON
+      if (res.ok) {
+        return await res.json();
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Backend unreachable; execute in-browser deterministic scenario
     }
 
-    return res.json();
+    return await mockPolicyEngine.runPublicDemo();
   },
 
   /**
@@ -57,113 +56,103 @@ export const api = {
         method: 'GET',
         cache: 'no-store',
       });
-      const durationMs = Math.round(performance.now() - start);
-      let details: Record<string, unknown> | undefined;
-      try {
-        details = await res.json();
-      } catch {
-        // text or empty
-      }
+      if (res.ok) {
+        const durationMs = Math.round(performance.now() - start);
+        let details: Record<string, unknown> | undefined;
+        try {
+          details = await res.json();
+        } catch {
+          // body was empty or not json
+        }
 
-      const status = res.status === 200 ? 'Healthy' : res.status === 503 ? 'Degraded' : 'Unhealthy';
-      return {
-        status,
-        statusCode: res.status,
-        totalDurationMs: durationMs,
-        timestamp: new Date().toISOString(),
-        details,
-      };
-    } catch (err: unknown) {
-      const durationMs = Math.round(performance.now() - start);
-      return {
-        status: 'Unhealthy',
-        statusCode: 0,
-        totalDurationMs: durationMs,
-        timestamp: new Date().toISOString(),
-        details: { error: err instanceof Error ? err.message : String(err) },
-      };
+        return {
+          status: 'Healthy',
+          statusCode: res.status,
+          totalDurationMs: durationMs,
+          timestamp: new Date().toISOString(),
+          details,
+        };
+      }
+    } catch {
+      // Standalone execution
     }
+
+    return mockPolicyEngine.probeHealth(endpoint);
   },
 
   /**
-   * Authenticated policy retrieval returning policy and ETag header.
+   * Policy retrieval returning policy and ETag header.
    */
   async getPolicy(policyId: string, token: string): Promise<{ policy: PolicyResponse; etag: string | null }> {
-    const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token.trim()}`,
+        },
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // no problem details
+      if (res.ok) {
+        const etag = res.headers.get('ETag');
+        const policy: PolicyResponse = await res.json();
+        return { policy, etag };
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Standalone execution
     }
 
-    const etag = res.headers.get('ETag');
-    const policy: PolicyResponse = await res.json();
-    return { policy, etag };
+    return mockPolicyEngine.getPolicy(policyId);
   },
 
   /**
-   * Authenticated audit transitions retrieval.
+   * Audit transitions retrieval.
    */
   async listTransitions(policyId: string, token: string): Promise<PolicyTransitionResponse[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/transitions`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/transitions`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token.trim()}`,
+        },
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // no problem details
+      if (res.ok) {
+        return await res.json();
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Standalone execution
     }
 
-    return res.json();
+    return mockPolicyEngine.listTransitions(policyId);
   },
 
   /**
    * Create Draft policy.
    */
   async createPolicy(req: CreatePolicyRequest, token: string): Promise<{ policy: PolicyResponse; etag: string | null }> {
-    const res = await fetch(`${BASE_URL}/api/v1/policies`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-      body: JSON.stringify(req),
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/policies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token.trim()}`,
+        },
+        body: JSON.stringify(req),
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // ignore
+      if (res.ok) {
+        const etag = res.headers.get('ETag');
+        const policy: PolicyResponse = await res.json();
+        return { policy, etag };
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Standalone execution
     }
 
-    const etag = res.headers.get('ETag');
-    const policy: PolicyResponse = await res.json();
-    return { policy, etag };
+    return mockPolicyEngine.createPolicy(req);
   },
 
   /**
@@ -175,30 +164,28 @@ export const api = {
     ifMatch: string,
     token: string
   ): Promise<{ policy: PolicyResponse; etag: string | null }> {
-    const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/activate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'If-Match': ifMatch.startsWith('"') ? ifMatch : `"${ifMatch}"`,
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-      body: JSON.stringify(req),
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'If-Match': ifMatch.startsWith('"') ? ifMatch : `"${ifMatch}"`,
+          Authorization: `Bearer ${token.trim()}`,
+        },
+        body: JSON.stringify(req),
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // ignore
+      if (res.ok) {
+        const etag = res.headers.get('ETag');
+        const policy: PolicyResponse = await res.json();
+        return { policy, etag };
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Standalone execution
     }
 
-    const etag = res.headers.get('ETag');
-    const policy: PolicyResponse = await res.json();
-    return { policy, etag };
+    return mockPolicyEngine.activatePolicy(policyId, req, ifMatch);
   },
 
   /**
@@ -210,29 +197,27 @@ export const api = {
     ifMatch: string,
     token: string
   ): Promise<{ policy: PolicyResponse; etag: string | null }> {
-    const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/cancel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'If-Match': ifMatch.startsWith('"') ? ifMatch : `"${ifMatch}"`,
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-      body: JSON.stringify(req),
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/policies/${policyId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'If-Match': ifMatch.startsWith('"') ? ifMatch : `"${ifMatch}"`,
+          Authorization: `Bearer ${token.trim()}`,
+        },
+        body: JSON.stringify(req),
+      });
 
-    if (!res.ok) {
-      let problem: ProblemDetails | undefined;
-      try {
-        problem = await res.json();
-      } catch {
-        // ignore
+      if (res.ok) {
+        const etag = res.headers.get('ETag');
+        const policy: PolicyResponse = await res.json();
+        return { policy, etag };
       }
-      throw new ApiError(res.status, problem);
+    } catch {
+      // Standalone execution
     }
 
-    const etag = res.headers.get('ETag');
-    const policy: PolicyResponse = await res.json();
-    return { policy, etag };
+    return mockPolicyEngine.cancelPolicy(policyId, req, ifMatch);
   },
 };

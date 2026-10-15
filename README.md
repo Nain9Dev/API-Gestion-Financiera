@@ -50,23 +50,33 @@ El objetivo no es aparentar un SaaS terminado, sino demostrar con código limpio
 - Cabeceras de seguridad base en todas las respuestas y CSP restrictiva en la página de demo.
 - Tests de dominio, de aplicación sin base de datos, de API, autorización, aislamiento y migrations contra SQL Server 2025 real.
 
-## Arquitectura
+## Arquitectura y Diagrama C4
 
-```text
-HTTP + JWT
-  -> PolicyOperations.Api
-      -> PolicyOperations.Application
-          -> PolicyOperations.Domain
-      -> PolicyOperations.Infrastructure
-          -> EF Core 10
-              -> SQL Server
+```mermaid
+graph TD
+    User["Operador / Cliente Web<br/>(Vue 3 + TS)"]
+    API["PolicyOperations.Api<br/>(ASP.NET Core / .NET 10)"]
+    AppLayer["PolicyOperations.Application<br/>(Casos de uso / Puertos)"]
+    DomainLayer["PolicyOperations.Domain<br/>(Entidades / Reglas de negocio puras)"]
+    InfraLayer["PolicyOperations.Infrastructure<br/>(EF Core 10 / SQL Server Driver)"]
+    DB[("SQL Server<br/>(Azure SQL / Local)")]
 
-PolicyOperations.Domain.Tests      -> Domain
-PolicyOperations.Application.Tests -> Application (dobles de prueba, sin base de datos)
-PolicyOperations.IntegrationTests  -> API + Infrastructure + SQL Server real
+    User -->|HTTPS + JWT / ETag| API
+    API --> AppLayer
+    AppLayer --> DomainLayer
+    AppLayer --> InfraLayer
+    InfraLayer -->|rowversion / Transacciones| DB
 ```
 
-La API es el composition root. Application define casos de uso y puertos concretos; Infrastructure implementa persistencia; Domain no depende de ASP.NET Core ni EF Core.
+### Matriz de Decisiones y Trade-Offs
+
+| Dimensión | Decisión adoptada | Alternativa descartada | Razón técnica |
+|---|---|---|---|
+| **Concurrencia** | Optimista con `rowversion`, ETag e `If-Match` (`412 Precondition Failed`) | Bloqueos pesimistas (`SELECT FOR UPDATE`) | Evita bloqueos en transacciones largas y garantiza escalabilidad horizontal sin estado en HTTP. |
+| **Aislamiento Multi-Tenant** | Organización derivada de claim JWT confiable (`organization_id`) y filtrado en repositorio | Base de datos por tenant | Permite ejecución a 0,00 € en Azure SQL Free sin sobrecostes ni orquestación compleja de conexiones. |
+| **Auditoría** | Tabla inmutable append-only de transiciones (`PolicyTransitions`) en la misma transacción | Event Sourcing completo | Auditoría estricta y reproducible sin la complejidad operativa ni consistencia eventual de Event Sourcing. |
+| **Persistencia** | EF Core 10 con migraciones deterministas | Dapper puro | Modelado formal del ciclo de vida y validación de tipos complejos preservando rendimiento óptimo. |
+
 
 ## Endpoints
 

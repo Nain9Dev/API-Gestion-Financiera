@@ -4,9 +4,13 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\PolicyOperations.Domain\PolicyOperations.Domain.csproj" />
     <ProjectReference Include="..\..\PolicyOperations.Application\PolicyOperations.Application.csproj" />
+    <ProjectReference Include="..\..\PolicyOperations.Infrastructure\PolicyOperations.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\PolicyOperations.Api\PolicyOperations.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -12,6 +12,7 @@
 [![Cost](https://img.shields.io/badge/cost-0.00_%E2%82%AC-22c55e)](https://github.com/Nain9Dev/engineering-handbook/blob/main/governance/zero-cost-philosophy.md)
 [![ci](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml/badge.svg)](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
+[![Architecture Tests](https://img.shields.io/badge/Architecture%20Tests-NetArchTest%20enforced-80FF00?style=flat-square&logo=checkmarx&logoColor=black)](GestionFinanciera/tests/PolicyOperations.Application.Tests/ArchitectureTests.cs)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D)](https://vuejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational)](LICENSE)
 

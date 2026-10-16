@@ -25,6 +25,14 @@ function encodeRowVersion(num: number): string {
   return btoa(binary);
 }
 
+function emitTelemetry(type: string, name: string, latencyMs: number, status: number, payload: unknown) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('nain:telemetry', {
+      detail: { type, name, latencyMs, status, payload }
+    }));
+  }
+}
+
 export const mockPolicyEngine = {
   async runPublicDemo(): Promise<PublicDemoRunResponse> {
     const runId = crypto.randomUUID();
@@ -134,6 +142,16 @@ export const mockPolicyEngine = {
     transitions.set(policyId, transList);
 
     const totalDuration = steps.reduce((acc, s) => acc + s.durationMs, 0);
+
+    steps.forEach((step) => {
+      emitTelemetry(
+        step.expectedStatus === 412 ? 'ConcurrencyGuard' : 'LifecycleCommand',
+        `${step.method} ${step.path} (${step.stepKey})`,
+        step.durationMs,
+        step.expectedStatus,
+        { etag: step.etag, outcome: step.outcome, resultingStatus: step.resultingStatus }
+      );
+    });
 
     return {
       runId,

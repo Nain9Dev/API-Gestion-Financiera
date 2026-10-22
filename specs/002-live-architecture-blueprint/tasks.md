@@ -44,10 +44,10 @@
   `public-demo.md` 0.4, README row).
 - **Final gate (2026-10-22):** `dotnet build` Release 0 warnings / 0 errors; `dotnet format` clean;
   Domain 22/22, Application 25/25, Integration 25/26; `npm run build` clean; `npm test` 16/16.
-- **Known failure, pre-existing:** `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` requests
-  `/swagger/v1/swagger.json`, removed by the Scalar migration in commit `ee39423` (the test file
-  was not touched since). It answers `401` on `main` as well. Out of scope for spec 002; needs its
-  own fix against `/openapi/v1.json`.
+- **Pre-existing failure, fixed on this branch:** `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses`
+  requested `/swagger/v1/swagger.json`, removed by the Scalar migration in commit `ee39423`, and
+  broke CI on `main`. Spec 003 (`specs/003-openapi-contract-test/`) restores the contract evidence
+  against `/openapi/v1.json` and is included in the same pull request so CI can go green.
 - **Not verified:** `prefers-reduced-motion` was not emulated in a browser (code path only). A
   `Live` run from `policy.naindev.com` needs the API redeployed with the new CORS origin.
   `.claude/launch.json` was added for the browser preview and is untracked.

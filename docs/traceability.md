@@ -129,7 +129,7 @@ Suites:
 
 | Rule | Suite | Test |
 |---|---|---|
-| Quoted `If-Match` example and JSON media types in OpenAPI | I | `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` |
+| OpenAPI document is anonymous, publishes the Bearer scheme, a quoted `If-Match` example and JSON media types (spec 003, `REQ-030`, `REQ-032` to `REQ-035`) | I | `OpenApiDocumentExplainsQuotedEtagAndDocumentsJsonResponses` |
 | Liveness and readiness are separate | I | `LivenessAndSqlReadinessAreSeparateAndHealthy` |
 
 ## Client presentation (spec 002, ADR-007 proposed)

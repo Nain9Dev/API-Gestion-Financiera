@@ -7,7 +7,7 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
-## 0.9 — 2026-10-22 — Live architecture blueprint and honest execution source
+## 0.10 — 2026-10-22 — Live architecture blueprint and honest execution source
 
 Governing decision: ADR-007 (`Proposed`), spec 002.
 
@@ -33,11 +33,30 @@ Governing decision: ADR-007 (`Proposed`), spec 002.
   `resourceStatus`, `dataRetentionHours`, `policy`, `occurredAtUtc`, `actorSubject`,
   `correlationId`). Before this change a live response rendered undefined values.
 
-### Known gap
+## 0.9 — 2026-10-22 — OpenAPI contract evidence restored after the Scalar migration
 
-- `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` fails since the Scalar migration (0.8): it
-  requests `/swagger/v1/swagger.json`, which no longer exists and now answers `401`. Not caused
-  by this change; needs its own fix against the native OpenAPI document.
+Specification: `specs/003-openapi-contract-test/`.
+
+### Fixed
+
+- The OpenAPI document moved to `/openapi/v1.json` in 0.8 and fell under the authenticated-user
+  fallback policy, so anonymous requests received `401` and the `/docs` reference could not load
+  its own document. The document, `/docs` and the `/swagger` redirect are anonymous again; every
+  other endpoint keeps the fallback policy.
+- The Swashbuckle operation filter removed in 0.8 was not replaced, so the native document
+  described `If-Match` as optional without an example, listed `text/plain` and `text/json` on
+  every response and published no security scheme. `BearerSecurityDocumentTransformer` and
+  `PolicyOperationTransformer` restore the Bearer scheme with its global requirement, the empty
+  requirement on anonymous operations, the required quoted `If-Match` example and the
+  `application/json` / `application/problem+json` media types.
+- `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` still requested the removed Swagger path.
+  Renamed to `OpenApiDocumentExplainsQuotedEtagAndDocumentsJsonResponses`, pointed at the native
+  document and extended to assert the Bearer scheme and the global requirement.
+
+### Verified
+
+- Local SQL Server 2025, Release build, 0 warnings, `dotnet format` clean: 22 domain, 25
+  application and 25 integration tests passed, 0 skipped.
 
 ## 0.8 — 2026-10-14 — NainPolicy Client, OpenAPI Scalar migration and commercial alignment
 

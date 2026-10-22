@@ -576,12 +576,12 @@ public sealed class PoliciesApiTests : IAsyncLifetime
     }
 
     [SqlServerFact]
-    public async Task SwaggerExplainsQuotedEtagAndDocumentsJsonResponses()
+    public async Task OpenApiDocumentExplainsQuotedEtagAndDocumentsJsonResponses()
     {
         using var anonymousClient = Factory.CreateClient();
-        using var response = await anonymousClient.GetAsync("/swagger/v1/swagger.json");
+        using var response = await anonymousClient.GetAsync("/openapi/v1.json");
 
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await using var contentStream = await response.Content.ReadAsStreamAsync();
         using var document = await JsonDocument.ParseAsync(contentStream);
         var activateOperation = document.RootElement
@@ -609,6 +609,15 @@ public sealed class PoliciesApiTests : IAsyncLifetime
             .GetProperty("400")
             .GetProperty("content")
             .TryGetProperty("application/problem+json", out _));
+
+        var bearerScheme = document.RootElement
+            .GetProperty("components")
+            .GetProperty("securitySchemes")
+            .GetProperty("Bearer");
+        Assert.Equal("bearer", bearerScheme.GetProperty("scheme").GetString());
+        Assert.Contains(
+            document.RootElement.GetProperty("security").EnumerateArray(),
+            requirement => requirement.TryGetProperty("Bearer", out _));
 
         var demoOperation = document.RootElement
             .GetProperty("paths")

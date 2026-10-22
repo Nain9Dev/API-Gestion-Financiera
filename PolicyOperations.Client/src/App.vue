@@ -57,14 +57,12 @@ watch(token, (newVal) => {
         <div class="footer-left">
           <span class="footer-brand font-heading">NainPolicy</span>
           <span class="footer-sep">·</span>
-          <span class="footer-meta">Financial & Insurance Policy Engine</span>
-          <span class="footer-sep">·</span>
-          <span class="footer-meta">.NET 10 Clean Architecture</span>
+          <span class="footer-meta font-mono">synthetic data · 0.00 € · MIT</span>
         </div>
         <div class="footer-right">
-          <a href="http://localhost:8110/docs" target="_blank" rel="noopener noreferrer" class="footer-link">Scalar OpenApi</a>
+          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer" class="footer-link">Architecture</a>
           <span class="footer-sep">·</span>
-          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub Repository</a>
+          <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer" class="footer-link">Source</a>
           <span class="footer-sep">·</span>
           <a href="https://naindev.com" target="_blank" rel="noopener noreferrer" class="footer-link highlight">naindev.com</a>
         </div>

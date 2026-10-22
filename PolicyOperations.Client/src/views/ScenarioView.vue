@@ -1,519 +1,426 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import ArchitectureBlueprint, { type BlueprintPhase } from '../components/ArchitectureBlueprint.vue';
+import { buildTimeline, IDLE_FRAME, type BlueprintFrame, type NodeId } from '../architecture/blueprintTimeline';
 import { api, ApiError } from '../services/api';
-import type { PublicDemoRunResponse } from '../types/contracts';
+import type { ScenarioRun } from '../types/contracts';
 
-const isExecuting = ref(false);
-const result = ref<PublicDemoRunResponse | null>(null);
+const phase = ref<BlueprintPhase>('idle');
+const run = ref<ScenarioRun | null>(null);
+const frames = ref<BlueprintFrame[]>([]);
+const currentIndex = ref(0);
 const errorMessage = ref<string | null>(null);
-const retryAfterSec = ref<number | null>(null);
-const activeTabJson = ref<'policy' | 'transitions' | 'raw'>('policy');
+const elapsedMs = ref(0);
+const showJson = ref(false);
 
-async function handleRunScenario() {
-  isExecuting.value = true;
+const reducedMotion = ref(false);
+let motionQuery: MediaQueryList | null = null;
+let elapsedTimer: number | null = null;
+let replayTimers: number[] = [];
+
+const STEP_MS = 1150;
+const STEP_MS_REDUCED = 250;
+
+onMounted(() => {
+  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  reducedMotion.value = motionQuery.matches;
+  motionQuery.addEventListener('change', onMotionChange);
+});
+
+onBeforeUnmount(() => {
+  motionQuery?.removeEventListener('change', onMotionChange);
+  stopElapsed();
+  clearReplay();
+});
+
+function onMotionChange(e: MediaQueryListEvent) {
+  reducedMotion.value = e.matches;
+}
+
+function startElapsed() {
+  const started = performance.now();
+  elapsedMs.value = 0;
+  elapsedTimer = window.setInterval(() => {
+    elapsedMs.value = Math.round(performance.now() - started);
+  }, 100);
+}
+
+function stopElapsed() {
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+}
+
+function clearReplay() {
+  for (const t of replayTimers) window.clearTimeout(t);
+  replayTimers = [];
+}
+
+const currentFrame = computed<BlueprintFrame>(() =>
+  currentIndex.value > 0 && frames.value[currentIndex.value - 1]
+    ? frames.value[currentIndex.value - 1]
+    : IDLE_FRAME
+);
+
+const visitedNodes = computed<NodeId[]>(() => {
+  const set = new Set<NodeId>();
+  for (let i = 0; i < currentIndex.value - 1 && i < frames.value.length; i++) {
+    for (const n of frames.value[i].litNodes) set.add(n);
+  }
+  return [...set];
+});
+
+const elapsedLabel = computed(() => `${(elapsedMs.value / 1000).toFixed(1)} s`);
+
+async function handleRun() {
+  if (phase.value === 'waiting' || phase.value === 'replaying') return;
+
+  clearReplay();
   errorMessage.value = null;
-  retryAfterSec.value = null;
+  run.value = null;
+  frames.value = [];
+  currentIndex.value = 0;
+  showJson.value = false;
+  phase.value = 'waiting';
+  startElapsed();
 
   try {
-    const data = await api.runPublicDemo();
-    result.value = data;
+    const result = await api.runScenario();
+    stopElapsed();
+    elapsedMs.value = result.elapsedMs;
+    run.value = result;
+    frames.value = buildTimeline(result.response.steps);
+    replay();
   } catch (err: unknown) {
+    stopElapsed();
+    phase.value = 'error';
     if (err instanceof ApiError) {
-      if (err.status === 429) {
-        errorMessage.value = 'Rate limit reached: Public demo allows up to 10 requests per minute.';
-        retryAfterSec.value = 60;
-      } else if (err.status === 503) {
-        errorMessage.value = 'Database service unavailable or resuming from cold-start AutoPause.';
-      } else {
-        errorMessage.value = err.message || `API error ${err.status}`;
-      }
+      errorMessage.value = err.status === 429 ? '429 · rate limit, retry in 60 s' : `${err.status} · ${err.problem?.code ?? err.message}`;
     } else {
       errorMessage.value = err instanceof Error ? err.message : String(err);
     }
-  } finally {
-    isExecuting.value = false;
   }
+}
+
+function replay() {
+  phase.value = 'replaying';
+  const stepMs = reducedMotion.value ? STEP_MS_REDUCED : STEP_MS;
+  frames.value.forEach((_, i) => {
+    replayTimers.push(
+      window.setTimeout(() => {
+        currentIndex.value = i + 1;
+        if (i === frames.value.length - 1) {
+          phase.value = 'done';
+        }
+      }, i * stepMs)
+    );
+  });
+}
+
+function showStep(index: number) {
+  if (phase.value === 'replaying') return;
+  currentIndex.value = index;
+}
+
+function statusClass(frame: BlueprintFrame) {
+  if (frame.tone === 'rejected') return 'is-rejected';
+  return 'is-ok';
 }
 </script>
 
 <template>
-  <div class="scenario-view">
-    <!-- Intro Card -->
-    <div class="glass-panel intro-card">
-      <div class="intro-content">
-        <div class="badge-row">
-          <span class="badge badge-cyan">Zero-Allocation Test Scenario</span>
-          <span class="badge badge-emerald">Deterministic Proof</span>
-          <span class="badge badge-slate">Synthetic Data Only</span>
-        </div>
-        <h2>One-Click Executable Scenario</h2>
-        <p class="intro-description">
-          Dispatches a certified lifecycle demonstration to the .NET 10 API engine.
-          The transaction creates a policy draft, promotes it to active with an initial ETag, proves
-          optimistic concurrency by rejecting a stale revision with <code>HTTP 412 Precondition Failed</code>,
-          cancels it with the fresh version, and verifies the append-only transition log.
-        </p>
-
-        <div class="action-bar">
-          <button
-            type="button"
-            class="btn btn-primary run-btn"
-            :disabled="isExecuting"
-            @click="handleRunScenario"
-          >
-            <span v-if="isExecuting" class="spinner"></span>
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <span>{{ isExecuting ? 'Executing Policy Transaction...' : 'Run Verified Scenario' }}</span>
-          </button>
-
-          <span class="endpoint-hint">
-            Direct endpoint: <code>POST /api/v1/demo/run</code> (Rate limit: 10 req/min)
-          </span>
-        </div>
-      </div>
+  <section class="stage" aria-label="Live architecture blueprint">
+    <div class="glass-panel sheet">
+      <ArchitectureBlueprint
+        :frame="currentFrame"
+        :visited-nodes="visitedNodes"
+        :phase="phase"
+        :reduced-motion="reducedMotion"
+      />
     </div>
 
-    <!-- Error Banner -->
-    <div v-if="errorMessage" class="glass-panel error-card">
-      <div class="error-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    <div class="glass-panel control-strip">
+      <button
+        type="button"
+        class="btn btn-primary run-btn"
+        :disabled="phase === 'waiting' || phase === 'replaying'"
+        @click="handleRun"
+      >
+        <span v-if="phase === 'waiting'" class="spinner" aria-hidden="true"></span>
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <polygon points="6 3 20 12 6 21 6 3"></polygon>
         </svg>
-      </div>
-      <div>
-        <h4>Execution Halt</h4>
-        <p>{{ errorMessage }}</p>
-        <p v-if="retryAfterSec" class="retry-hint">Retry-After window: {{ retryAfterSec }} seconds.</p>
-      </div>
+        <span>{{ phase === 'waiting' ? 'Running' : phase === 'replaying' ? 'Tracing' : run ? 'Run again' : 'Run scenario' }}</span>
+      </button>
+
+      <span class="readout font-mono" aria-live="polite">
+        <template v-if="phase === 'waiting'">{{ elapsedLabel }}</template>
+        <template v-else-if="run">{{ run.response.totalDurationMs }} ms server · {{ elapsedLabel }} wall</template>
+        <template v-else>POST /api/v1/demo/run · 5 steps · no sign-up</template>
+      </span>
+
+      <span v-if="run" :class="['source', `source-${run.source}`]" :title="run.source === 'live' ? 'Response from the API and SQL Server' : 'In-browser fallback: the API was unreachable'">
+        <span class="source-dot" aria-hidden="true"></span>
+        {{ run.source === 'live' ? 'Live · SQL Server' : 'Simulated · in-browser' }}
+      </span>
+
+      <span v-if="run" class="run-id font-mono">run {{ run.response.runId }}</span>
+
+      <span v-if="errorMessage" class="error font-mono" role="alert">{{ errorMessage }}</span>
+
+      <button
+        v-if="run"
+        type="button"
+        class="btn btn-secondary json-btn"
+        :aria-expanded="showJson"
+        @click="showJson = !showJson"
+      >
+        JSON
+      </button>
     </div>
 
-    <!-- Results Section -->
-    <div v-if="result" class="results-container">
-      <!-- Metrics Bar -->
-      <div class="metrics-grid">
-        <div class="glass-panel metric-box">
-          <span class="metric-label">Total Execution</span>
-          <span class="metric-value highlight">{{ result.totalDurationMs }} ms</span>
-          <span class="metric-sub">5 operations executed</span>
-        </div>
+    <ol v-if="frames.length" class="steps" aria-label="Scenario steps">
+      <li v-for="frame in frames" :key="frame.index">
+        <button
+          type="button"
+          :class="['step', statusClass(frame), { current: frame.index === currentIndex, reached: frame.index <= currentIndex }]"
+          :aria-current="frame.index === currentIndex ? 'step' : undefined"
+          :disabled="phase === 'replaying'"
+          @click="showStep(frame.index)"
+        >
+          <span class="step-index font-mono">{{ String(frame.index).padStart(2, '0') }}</span>
+          <span class="step-label">{{ frame.label }}</span>
+          <span class="step-route font-mono">{{ frame.method }} {{ frame.path.replace(/\/api\/v1/, '').replace(/[0-9a-f-]{36}/, '{id}') }}</span>
+          <span class="step-status font-mono">{{ frame.status }}</span>
+          <span class="step-ms font-mono">{{ frame.durationMs }} ms</span>
+        </button>
+      </li>
+    </ol>
 
-        <div class="glass-panel metric-box">
-          <span class="metric-label">Scenario Run ID</span>
-          <span class="metric-value font-mono">{{ result.runId }}</span>
-          <span class="metric-sub">Auto-pruned after {{ result.retentionHours }}h</span>
-        </div>
-
-        <div class="glass-panel metric-box">
-          <span class="metric-label">Final Lifecycle Status</span>
-          <span class="metric-value text-rose">{{ result.finalPolicy.status }}</span>
-          <span class="metric-sub">Insured: {{ result.finalPolicy.insuredAmount }} {{ result.finalPolicy.currency }}</span>
-        </div>
-
-        <div class="glass-panel metric-box">
-          <span class="metric-label">Audit History</span>
-          <span class="metric-value text-emerald">{{ result.transitions.length }} Transitions</span>
-          <span class="metric-sub">Append-only immutability</span>
-        </div>
-      </div>
-
-      <!-- Step-by-Step Progress Waterfall -->
-      <div class="glass-panel waterfall-panel">
-        <div class="panel-header">
-          <h3>Transaction Flow Breakdown</h3>
-          <span class="badge badge-cyan">Certified Output</span>
-        </div>
-
-        <div class="steps-list">
-          <div
-            v-for="(step, idx) in result.steps"
-            :key="step.stepKey"
-            class="step-item"
-          >
-            <div class="step-num">{{ idx + 1 }}</div>
-            <div class="step-body">
-              <div class="step-header-row">
-                <div class="step-title-wrap">
-                  <span class="step-method" :class="'method-' + step.method.toLowerCase()">{{ step.method }}</span>
-                  <span class="step-path font-mono">{{ step.path }}</span>
-                </div>
-                <div class="step-meta">
-                  <span
-                    :class="[
-                      'badge',
-                      step.expectedStatus === 200 || step.expectedStatus === 201 ? 'badge-emerald' : 'badge-amber'
-                    ]"
-                  >
-                    HTTP {{ step.expectedStatus }}
-                  </span>
-                  <span class="step-time font-mono">{{ step.durationMs }} ms</span>
-                </div>
-              </div>
-
-              <div class="step-details">
-                <span class="step-outcome">
-                  <strong>Outcome:</strong> {{ step.outcome }}
-                </span>
-                <span v-if="step.resultingStatus" class="step-status">
-                  <strong>Status:</strong> {{ step.resultingStatus }}
-                </span>
-                <span v-if="step.etag" class="step-etag font-mono">
-                  <strong>ETag:</strong> {{ step.etag }}
-                </span>
-                <span v-if="step.errorCode" class="step-error font-mono">
-                  <strong>Error Code:</strong> {{ step.errorCode }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Inspection Tabs -->
-      <div class="glass-panel inspection-panel">
-        <div class="panel-header">
-          <div class="tab-selectors">
-            <button
-              type="button"
-              :class="['mini-tab', { active: activeTabJson === 'policy' }]"
-              @click="activeTabJson = 'policy'"
-            >
-              Policy Snapshot
-            </button>
-            <button
-              type="button"
-              :class="['mini-tab', { active: activeTabJson === 'transitions' }]"
-              @click="activeTabJson = 'transitions'"
-            >
-              Audit Trail ({{ result.transitions.length }})
-            </button>
-            <button
-              type="button"
-              :class="['mini-tab', { active: activeTabJson === 'raw' }]"
-              @click="activeTabJson = 'raw'"
-            >
-              Full JSON Response
-            </button>
-          </div>
-        </div>
-
-        <div class="json-viewer">
-          <pre v-if="activeTabJson === 'policy'"><code>{{ JSON.stringify(result.finalPolicy, null, 2) }}</code></pre>
-          <pre v-else-if="activeTabJson === 'transitions'"><code>{{ JSON.stringify(result.transitions, null, 2) }}</code></pre>
-          <pre v-else><code>{{ JSON.stringify(result, null, 2) }}</code></pre>
-        </div>
-      </div>
+    <div v-if="run && showJson" class="glass-panel json-panel">
+      <pre class="font-mono"><code>{{ JSON.stringify(run.response, null, 2) }}</code></pre>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.scenario-view {
+.stage {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.75rem;
 }
 
-.intro-card {
-  padding: 2rem;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(12, 18, 32, 0.95) 100%);
-  border: 1px solid var(--border-subtle);
+.sheet {
+  padding: 0;
+  overflow: hidden;
+  line-height: 0;
 }
 
-.badge-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.intro-card h2 {
-  font-family: var(--font-heading);
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-
-.intro-description {
-  color: var(--text-muted);
-  max-width: 820px;
-  line-height: 1.6;
-  font-size: 0.95rem;
-  margin-bottom: 1.5rem;
-}
-
-.intro-description code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-sm);
-  color: #7dd3fc;
-  font-family: var(--font-mono);
-}
-
-.action-bar {
+.control-strip {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
   flex-wrap: wrap;
 }
 
 .run-btn {
-  padding: 0.85rem 1.8rem;
-  font-size: 1rem;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.95rem;
 }
 
-.endpoint-hint {
-  font-size: 0.82rem;
-  color: var(--text-dim);
-}
-
-.endpoint-hint code {
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-}
-
-.error-card {
-  padding: 1.25rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border-left: 4px solid var(--accent-rose);
-  background: rgba(244, 63, 94, 0.06);
-}
-
-.error-icon {
-  color: var(--accent-rose);
-}
-
-.error-card h4 {
-  color: #fca5a5;
-  margin-bottom: 0.25rem;
-}
-
-.error-card p {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.retry-hint {
-  font-size: 0.82rem;
-  color: #fcd34d;
-  margin-top: 0.25rem;
-}
-
-.results-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
-.metric-box {
-  padding: 1.25rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.metric-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-}
-
-.metric-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-family: var(--font-heading);
-}
-
-.metric-value.highlight {
-  color: #38bdf8;
-}
-
-.text-rose {
-  color: var(--accent-rose);
-}
-
-.text-emerald {
-  color: var(--accent-emerald);
-}
-
-.metric-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.waterfall-panel, .inspection-panel {
-  padding: 1.5rem;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.panel-header h3 {
-  font-family: var(--font-heading);
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.steps-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.step-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  transition: all 0.2s ease;
-}
-
-.step-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(14, 165, 233, 0.15);
-  color: #7dd3fc;
-  font-weight: 700;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.step-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.step-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.step-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.step-method {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-sm);
-}
-
-.method-post {
-  background: rgba(14, 165, 233, 0.2);
-  color: #38bdf8;
-}
-
-.method-get {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-}
-
-.step-path {
-  font-size: 0.88rem;
-  color: var(--text-main);
-}
-
-.step-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.step-time {
-  font-size: 0.82rem;
-  color: var(--text-dim);
-}
-
-.step-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.step-etag strong, .step-status strong, .step-outcome strong, .step-error strong {
-  color: var(--text-dim);
-}
-
-.tab-selectors {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.mini-tab {
-  padding: 0.4rem 0.85rem;
+.readout {
   font-size: 0.8rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
+  letter-spacing: 0.04em;
 }
 
-.mini-tab:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.mini-tab.active {
-  background: rgba(14, 165, 233, 0.2);
-  color: #7dd3fc;
-  border: 1px solid rgba(14, 165, 233, 0.35);
-}
-
-.json-viewer {
-  background: #040810;
-  border-radius: var(--radius-sm);
-  padding: 1rem;
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.json-viewer pre {
+.source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.source-live {
+  color: var(--brand-green);
+  border-color: rgba(128, 255, 0, 0.5);
+  background: rgba(128, 255, 0, 0.08);
+}
+
+.source-live .source-dot {
+  box-shadow: 0 0 10px var(--brand-green);
+}
+
+.source-simulated {
+  color: #ffd27a;
+  border-color: rgba(255, 176, 32, 0.5);
+  background: rgba(255, 176, 32, 0.08);
+}
+
+.run-id {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.error {
+  font-size: 0.78rem;
+  color: #ff5c6e;
+}
+
+.json-btn {
+  margin-left: auto;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.step {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    'index label status'
+    'route route ms';
+  align-items: center;
+  column-gap: 0.6rem;
+  row-gap: 0.3rem;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  opacity: 0.45;
+  transition: opacity 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.step.reached {
+  opacity: 1;
+}
+
+.step.current {
+  border-color: var(--brand-green);
+  box-shadow: inset 0 0 0 1px var(--brand-green);
+}
+
+.step.is-rejected.current {
+  border-color: var(--brand-red);
+  box-shadow: inset 0 0 0 1px var(--brand-red);
+}
+
+.step:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-cyan);
+}
+
+.step:disabled {
+  cursor: default;
+}
+
+.step-index {
+  grid-area: index;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.step-label {
+  grid-area: label;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.step-status {
+  grid-area: status;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  color: var(--brand-black);
+  background: var(--brand-green);
+}
+
+.is-rejected .step-status {
+  background: var(--brand-red);
+  color: #ffffff;
+}
+
+.step-route {
+  grid-area: route;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-ms {
+  grid-area: ms;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.json-panel {
+  padding: 1rem;
+  max-height: 420px;
+  overflow: auto;
+  background: #040810;
+}
+
+.json-panel pre {
+  font-size: 0.78rem;
   color: #cbd5e1;
   line-height: 1.45;
 }
 
-.font-mono {
-  font-family: var(--font-mono);
+@media (max-width: 960px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keep the sheet legible on a phone: scroll the blueprint sideways instead of shrinking it. */
+  .sheet {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sheet :deep(svg) {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 560px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .json-btn {
+    margin-left: 0;
+  }
 }
 </style>

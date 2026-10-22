@@ -143,8 +143,8 @@ async function handleCancelPolicy() {
     <!-- State Machine Diagram -->
     <div class="glass-panel state-machine-panel">
       <div class="panel-header">
-        <h3>Finite State Machine (FSM) Lifecycle</h3>
-        <span class="badge badge-cyan">Invariants Enforced</span>
+        <h3>Lifecycle</h3>
+        <span class="badge badge-cyan">Draft → Active → Cancelled</span>
       </div>
 
       <div class="fsm-diagram">
@@ -193,13 +193,10 @@ async function handleCancelPolicy() {
         </svg>
       </div>
       <div class="notice-body">
-        <h4>Dev JWT Token Required for Custom Interactive Calls</h4>
-        <p>
-          Custom lifecycle mutations require an authenticated JWT bearing <code>organization_id</code> and role <code>PolicyOperator</code>.
-          You can use the <strong>One-Click Scenario</strong> tab for immediate zero-config verification, or click below to configure a local dev token.
-        </p>
+        <h4>Local JWT required</h4>
+        <p><code>organization_id</code> + role <code>PolicyOperator</code>. The Blueprint tab needs no token.</p>
         <button type="button" class="btn btn-primary config-btn" @click="emit('openTokenModal')">
-          Configure Dev Token
+          Configure JWT
         </button>
       </div>
     </div>
@@ -318,8 +315,8 @@ async function handleCancelPolicy() {
           </div>
 
           <div v-if="!currentPolicy" class="empty-inspector">
-            <p>No policy loaded in workbench.</p>
-            <p class="sub-text">Create a new policy using Step 1 to begin inspecting state transitions and ETags.</p>
+            <p>No policy loaded.</p>
+            <p class="sub-text">Step 1 creates a Draft.</p>
           </div>
 
           <div v-else class="inspector-details">
@@ -351,13 +348,9 @@ async function handleCancelPolicy() {
               <span class="detail-key">Coverage Period</span>
               <span class="detail-val">{{ currentPolicy.coverageStartDate }} → {{ currentPolicy.coverageEndDate }}</span>
             </div>
-            <div v-if="currentPolicy.cancellationReason" class="detail-row">
-              <span class="detail-key">Cancellation Reason</span>
-              <span class="detail-val text-rose">{{ currentPolicy.cancellationReason }}</span>
-            </div>
             <div class="detail-row">
-              <span class="detail-key">Last Updated (UTC)</span>
-              <span class="detail-val font-mono text-dim">{{ currentPolicy.updatedAtUtc }}</span>
+              <span class="detail-key">Created (UTC)</span>
+              <span class="detail-val font-mono text-dim">{{ currentPolicy.createdAtUtc }}</span>
             </div>
           </div>
         </div>

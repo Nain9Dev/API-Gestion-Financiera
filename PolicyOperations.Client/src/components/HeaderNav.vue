@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DOCS_URL } from '../services/api';
 
 defineProps<{
   activeTab: string;
@@ -11,69 +12,57 @@ const emit = defineEmits<{
 }>();
 
 const tabs = [
-  { id: 'scenario', label: 'One-Click Scenario', badge: 'Verified' },
-  { id: 'workbench', label: 'Policy Lifecycle', badge: 'Interactive' },
-  { id: 'concurrency', label: 'Concurrency Lab', badge: 'HTTP 412' },
-  { id: 'audit', label: 'Audit Trail', badge: 'Immutable' },
-  { id: 'resilience', label: 'Resilience Probe', badge: 'Telemetry' },
+  { id: 'scenario', label: 'Blueprint' },
+  { id: 'workbench', label: 'Lifecycle' },
+  { id: 'concurrency', label: 'Concurrency' },
+  { id: 'audit', label: 'Audit' },
+  { id: 'resilience', label: 'Resilience' },
 ];
 </script>
 
 <template>
   <header class="header glass-panel">
     <div class="top-row">
-      <div class="brand-section">
-        <div class="logo-box">
-          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <path d="m9 12 2 2 4-4"/>
-          </svg>
-        </div>
-        <div>
-          <div class="brand-title-wrap">
-            <h1 class="gradient-title">NainPolicy</h1>
-            <span class="badge badge-cyan">InsurTech Core</span>
-            <span class="badge badge-slate">.NET 10</span>
-          </div>
-          <p class="tagline">Enterprise Policy Lifecycle, Optimistic Concurrency & Append-Only Audit Trail</p>
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 440 440" aria-hidden="true">
+          <defs>
+            <mask id="logo-cut">
+              <rect width="440" height="440" fill="white" />
+              <polygon points="60,60 160,60 340,340 240,340" fill="none" stroke="black" stroke-width="24" stroke-linejoin="miter" />
+            </mask>
+          </defs>
+          <g mask="url(#logo-cut)">
+            <rect x="60" y="60" width="100" height="280" fill="#38BDF8" rx="8" />
+            <rect x="240" y="60" width="100" height="280" fill="#38BDF8" rx="8" />
+          </g>
+          <polygon points="60,60 160,60 340,340 240,340" fill="#80FF00" />
+        </svg>
+        <div class="brand-text">
+          <h1 class="gradient-title">NainPolicy</h1>
+          <span class="eyebrow">Policy operations · .NET 10 · SQL Server</span>
         </div>
       </div>
 
-      <div class="actions-section">
-        <button
-          type="button"
-          class="btn btn-secondary token-btn"
-          @click="emit('openTokenModal')"
-        >
-          <span :class="['status-dot', hasToken ? 'connected' : 'disconnected']"></span>
-          <span>{{ hasToken ? 'Dev JWT Active' : 'Configure JWT' }}</span>
+      <div class="actions">
+        <button type="button" class="btn btn-secondary token-btn" @click="emit('openTokenModal')">
+          <span :class="['status-dot', hasToken ? 'on' : 'off']" aria-hidden="true"></span>
+          <span>{{ hasToken ? 'JWT' : 'JWT' }}</span>
         </button>
-
-        <a href="http://localhost:8110/docs" target="_blank" rel="noopener noreferrer" class="btn btn-secondary nav-link-btn">
-          Scalar Docs
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-        </a>
-
-        <a href="https://naindev.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary portfolio-btn">
-          naindev.com
-        </a>
+        <a :href="DOCS_URL" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">OpenAPI</a>
+        <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Source</a>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <nav class="nav-tabs" aria-label="Main Navigation">
+    <nav class="tabs" aria-label="Sections">
       <button
         v-for="t in tabs"
         :key="t.id"
-        :class="['tab-btn', { active: activeTab === t.id }]"
+        type="button"
+        :class="['tab', { active: activeTab === t.id }]"
+        :aria-current="activeTab === t.id ? 'page' : undefined"
         @click="emit('update:activeTab', t.id)"
       >
-        <span>{{ t.label }}</span>
-        <span class="tab-badge" :class="activeTab === t.id ? 'active-badge' : ''">{{ t.badge }}</span>
+        {{ t.label }}
       </button>
     </nav>
   </header>
@@ -81,69 +70,54 @@ const tabs = [
 
 <style scoped>
 .header {
-  margin-bottom: 2rem;
-  border-radius: var(--radius-lg);
-  padding: 1.25rem 1.75rem 0.5rem 1.75rem;
-  border: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(12, 18, 32, 0.75) 100%);
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem 0 1rem;
 }
 
 .top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.brand-section {
-  display: flex;
-  align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.75rem;
 }
 
-.logo-box {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(99, 102, 241, 0.25) 100%);
-  border: 1px solid rgba(14, 165, 233, 0.4);
+.brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-glow);
+  gap: 0.85rem;
 }
 
-.logo-icon {
-  width: 26px;
-  height: 26px;
-  color: #38bdf8;
+.logo {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
 }
 
-.brand-title-wrap {
+.brand-text {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
-.brand-title-wrap h1 {
-  font-size: 1.6rem;
+.brand-text h1 {
+  font-size: 1.5rem;
+  line-height: 1.1;
   margin: 0;
-  line-height: 1.2;
 }
 
-.tagline {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-
-.actions-section {
+.actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+}
+
+.actions .btn {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
 }
 
 .status-dot {
@@ -153,66 +127,50 @@ const tabs = [
   display: inline-block;
 }
 
-.status-dot.connected {
-  background: var(--accent-emerald);
-  box-shadow: 0 0 8px var(--accent-emerald);
+.status-dot.on {
+  background: var(--brand-green);
+  box-shadow: 0 0 8px var(--brand-green);
 }
 
-.status-dot.disconnected {
+.status-dot.off {
   background: var(--text-dim);
 }
 
-.nav-tabs {
+.tabs {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   overflow-x: auto;
-  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.tab-btn {
-  padding: 0.7rem 1.1rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+.tab {
+  padding: 0.7rem 0.9rem;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 700;
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
 }
 
-.tab-btn:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+.tab:hover {
+  color: #ffffff;
 }
 
-.tab-btn.active {
-  color: #38bdf8;
-  border-bottom-color: var(--accent-cyan);
+.tab.active {
+  color: var(--brand-green);
+  border-bottom-color: var(--brand-green);
 }
 
-.tab-badge {
-  font-size: 0.68rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-dim);
-}
-
-.active-badge {
-  background: rgba(14, 165, 233, 0.18);
-  color: #7dd3fc;
-}
-
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .top-row {
-    flex-direction: column;
     align-items: flex-start;
   }
-  .actions-section {
+
+  .actions {
     width: 100%;
-    justify-content: flex-start;
   }
 }
 </style>

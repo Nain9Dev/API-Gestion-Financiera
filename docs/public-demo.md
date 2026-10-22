@@ -1,9 +1,31 @@
 # Public portfolio demo
 
-- Document version: 0.3
+- Document version: 0.4
 - Status: Active evidence
-- Date: 2026-09-08
-- Governing decisions: ADR-005 and ADR-006 (proposed)
+- Date: 2026-10-22
+- Governing decisions: ADR-005, ADR-006 and ADR-007 (proposed)
+
+## Client showcase, 2026-10-22
+
+`https://policy.naindev.com/` serves `PolicyOperations.Client` from GitHub Pages. Its first view is
+the architecture blueprint (spec 002). Observed in the Vite dev server on 2026-10-22, without a
+local backend, so every run came from the in-browser fallback and was labelled `Simulated`:
+
+| Check | Observation |
+|---|---|
+| First screen at 1280 px | Blueprint visible without scrolling: Client, API, Application, Domain, Infrastructure, SQL Server |
+| Run scenario | Packets travel edge by edge; each lit layer turns brand green; step chips fill with status and ms |
+| Step 3 (`412`) | Client, API and Application outlined red, concurrency guard red, `412` burst; Domain stays `Active`; ledger unchanged |
+| End of run | Domain `Cancelled`; `Policies` row shows `status Cancelled`; `PolicyTransitions` shows `Draft → Active` and `Active → Cancelled` |
+| Source label | `Simulated · in-browser` in amber; a live response is labelled `Live · SQL Server` in green |
+| Step chips | Buttons, keyboard focusable, replay a frame on click once the run has finished |
+| Secondary tabs | Lifecycle, Concurrency, Audit and Resilience render on the brand tokens with one subtitle each |
+| Mobile 375 px | Header, actions and tabs wrap; the sheet scrolls sideways at a legible 760 px minimum width; the run button, source label and step chips stack in one column; no page-level horizontal scroll from the client itself |
+| Reduced motion | Not emulated; the component skips packet animation when `prefers-reduced-motion` matches |
+
+A `Live` run from the Pages site requires the API deployment that includes the
+`https://policy.naindev.com` CORS origin (`T-019`/`T-116`). Until then the public site shows
+`Simulated`, by design.
 
 ## Live result
 

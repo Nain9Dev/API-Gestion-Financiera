@@ -37,9 +37,9 @@ async function runRaceSimulation() {
     demoResult.value = res;
 
     // Extract actual ETags from backend steps
-    const createStep = res.steps.find((s) => s.stepKey === 'create_draft');
-    const activateStep = res.steps.find((s) => s.stepKey === 'activate_policy');
-    const staleStep = res.steps.find((s) => s.stepKey === 'reject_stale_update');
+    const createStep = res.steps.find((s) => s.operation === 'create_draft');
+    const activateStep = res.steps.find((s) => s.operation === 'activate_policy');
+    const staleStep = res.steps.find((s) => s.operation === 'reject_stale_update');
 
     if (createStep?.etag) {
       initialEtag.value = createStep.etag;
@@ -50,7 +50,7 @@ async function runRaceSimulation() {
     }
     if (staleStep) {
       betaProblemDetails.value = {
-        status: staleStep.expectedStatus,
+        status: staleStep.status,
         title: 'Precondition Failed',
         detail: 'The requested policy version does not match the current stored state.',
         code: staleStep.errorCode || 'concurrency_conflict',
@@ -81,18 +81,8 @@ async function runRaceSimulation() {
   <div class="concurrency-lab">
     <!-- Lab Explanation Card -->
     <div class="glass-panel info-card">
-      <div class="badge-row">
-        <span class="badge badge-cyan">Optimistic Concurrency Control (OCC)</span>
-        <span class="badge badge-emerald">Lock-Free Scalability</span>
-        <span class="badge badge-amber">SQL Server rowversion</span>
-      </div>
-      <h2>Optimistic Concurrency Laboratory</h2>
-      <p class="description">
-        In financial architectures, pessimistic locking creates database bottlenecks and deadlocks.
-        <strong>NainPolicy</strong> implements optimistic concurrency control via HTTP <code>ETag</code> and <code>If-Match</code> headers,
-        mapped to SQL Server <code>rowversion</code> bytes.
-        This lab demonstrates how conflicting concurrent updates are deterministically intercepted without data corruption.
-      </p>
+      <h2>Concurrency lab</h2>
+      <p class="description">Two operators, one <code>rowversion</code> · the stale <code>If-Match</code> gets <code>412</code>.</p>
 
       <div class="lab-controls">
         <button
@@ -235,15 +225,6 @@ async function runRaceSimulation() {
 
       <div class="json-code font-mono">
         <pre><code>{{ JSON.stringify(betaProblemDetails, null, 2) }}</code></pre>
-      </div>
-
-      <div class="explanation-box">
-        <h4>Why this guarantees financial integrity:</h4>
-        <p>
-          Without optimistic concurrency, Operator Beta's cancellation would have silently overwritten Operator Alpha's activation,
-          erasing policy terms from memory while leaving an orphaned record.
-          By enforcing <code>rowversion</code> matching at the SQL level, NainPolicy ensures atomicity without locking database tables.
-        </p>
       </div>
     </div>
   </div>

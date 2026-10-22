@@ -1,8 +1,8 @@
 # Traceability
 
-- Document version: 0.1
+- Document version: 0.2
 - Status: Active
-- Date: 2026-09-08
+- Date: 2026-10-22
 - Scope: Approved rule identifier to the test that demonstrates it
 
 ## How to read this
@@ -129,8 +129,24 @@ Suites:
 
 | Rule | Suite | Test |
 |---|---|---|
-| Quoted `If-Match` example and JSON media types in OpenAPI | I | `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` |
+| OpenAPI document is anonymous, publishes the Bearer scheme, a quoted `If-Match` example and JSON media types (spec 003, `REQ-030`, `REQ-032` to `REQ-035`) | I | `OpenApiDocumentExplainsQuotedEtagAndDocumentsJsonResponses` |
 | Liveness and readiness are separate | I | `LivenessAndSqlReadinessAreSeparateAndHealthy` |
+
+## Client presentation (spec 002, ADR-007 proposed)
+
+Suite `C` — `PolicyOperations.Client` Vitest (`npm test`, no browser).
+
+| Requirement | Suite | Test |
+|---|---|---|
+| `REQ-102` successful command lights every layer and moves the domain state | C | `lights every layer down to SQL Server for a successful lifecycle command`, `moves the domain state to the resulting status of each successful command` |
+| `REQ-103` `412` stops at the concurrency guard without state or ledger change | C | `draws a 412 as a rejected path stopped at the concurrency guard, without touching state or ledger` |
+| `REQ-104` one ledger row per transition, two at the end | C | `appends one ledger row per state transition so a full run ends with two rows` |
+| `REQ-110` run labelled `live` or `simulated` by source | C | `labels a 200 from the configured API as live…`, `labels the in-browser fallback as simulated when the network fails`, `…when the API answers with an error status` |
+| `REQ-111` base URL from `VITE_API_BASE_URL`, same-origin when absent | C | `prefixes the request with VITE_API_BASE_URL…`, `keeps same-origin paths when VITE_API_BASE_URL is absent`, `derives the OpenAPI explorer link from the same base URL` |
+| `REQ-112` CORS accepts `https://policy.naindev.com` | I | `PreflightFromPolicySubdomainIsAllowed` |
+| `REQ-113` client contract matches the API shape | C | `labels a 200 from the configured API as live and passes the response through unchanged` (typed against `PublicDemoRunResponse`; `vue-tsc` enforces the shape) |
+| `REQ-101` `REQ-105` `REQ-120` `REQ-121` `REQ-123` | — | Browser walkthrough recorded in `docs/public-demo.md` (2026-10-22) |
+| `REQ-122` reduced motion | — | **Gap.** Code path exists (`reducedMotion` prop skips packets); not emulated in a browser yet |
 
 ## Known gaps
 

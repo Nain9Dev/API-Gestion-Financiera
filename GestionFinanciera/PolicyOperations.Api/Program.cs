@@ -10,6 +10,7 @@ using PolicyOperations.Api.Configuration;
 using PolicyOperations.Api.Demo;
 using PolicyOperations.Api.Errors;
 using PolicyOperations.Api.Health;
+using PolicyOperations.Api.OpenApi;
 using Scalar.AspNetCore;
 using PolicyOperations.Api.Security;
 using PolicyOperations.Application.Abstractions;
@@ -146,13 +147,18 @@ builder.Services.AddCors(options =>
                 "http://localhost:5375",
                 "http://127.0.0.1:5375",
                 "https://naindev.com",
-                "https://www.naindev.com")
+                "https://www.naindev.com",
+                "https://policy.naindev.com")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .WithExposedHeaders("ETag", "Retry-After");
     });
 });
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecurityDocumentTransformer>();
+    options.AddOperationTransformer<PolicyOperationTransformer>();
+});
 builder.Services
     .AddHealthChecks()
     .AddCheck<SqlServerReadinessHealthCheck>(
@@ -170,9 +176,13 @@ if (builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
 
 app.UseExceptionHandler();
 
-app.MapOpenApi();
-app.MapScalarApiReference("/docs");
-app.MapGet("/swagger", () => Results.Redirect("/docs")).ExcludeFromDescription();
+// The contract description contains no data and no token. It stays reachable without
+// authentication, as the previous Swagger middleware was, so the API reference can load it.
+app.MapOpenApi().AllowAnonymous();
+app.MapScalarApiReference("/docs").AllowAnonymous();
+app.MapGet("/swagger", () => Results.Redirect("/docs"))
+    .AllowAnonymous()
+    .ExcludeFromDescription();
 
 if (!app.Environment.IsDevelopment())
 {

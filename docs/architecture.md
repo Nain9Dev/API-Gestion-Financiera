@@ -1,9 +1,9 @@
 # Architecture
 
-- Document version: 0.7
+- Document version: 0.8
 - Status: Approved and implemented for the local and live public-demo boundaries
-- Date: 2026-09-08
-- Governing ADRs: ADR-002, ADR-003, ADR-005 and ADR-006 (proposed)
+- Date: 2026-10-22
+- Governing ADRs: ADR-002, ADR-003, ADR-005, ADR-006 and ADR-007 (proposed, client presentation)
 
 ## Decision
 
@@ -12,9 +12,10 @@ Use one .NET 10 modular monolith and one SQL Server database. Keep business rule
 ## Structure
 
 ```text
-JWT client / Swagger                 Anonymous portfolio visitor
+JWT client / Scalar                  Anonymous portfolio visitor
+                                     (PolicyOperations.Client on policy.naindev.com, or /demo page)
     -> PolicyOperations.Api
-        <- fixed /api/v1/demo/run + same-origin /demo page
+        <- fixed /api/v1/demo/run + same-origin /demo page + CORS for the client origins
         -> PolicyOperations.Application
             -> PolicyOperations.Domain
         -> PolicyOperations.Infrastructure
@@ -24,7 +25,14 @@ JWT client / Swagger                 Anonymous portfolio visitor
 PolicyOperations.Domain.Tests      -> Domain
 PolicyOperations.Application.Tests -> Application (fakes, no database)
 PolicyOperations.IntegrationTests  -> API + Infrastructure + SQL Server
+PolicyOperations.Client (Vitest)   -> blueprint timeline and API source contract (no browser)
 ```
+
+The client is a presentation layer only. `architecture/blueprintTimeline.ts` turns the API's step
+list into frames (lit layers, domain state, ledger rows); `components/ArchitectureBlueprint.vue`
+paints one frame. The client never computes a business figure: every status, ETag and duration it
+shows comes from the API response, and a response produced by the in-browser fallback is labelled
+`Simulated` (ADR-007, proposed).
 
 | Component | Responsibility | Explicit exclusion |
 |---|---|---|

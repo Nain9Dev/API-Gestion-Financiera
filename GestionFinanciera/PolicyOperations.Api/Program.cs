@@ -146,7 +146,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5375",
                 "http://127.0.0.1:5375",
                 "https://naindev.com",
-                "https://www.naindev.com")
+                "https://www.naindev.com",
+                "https://policy.naindev.com")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .WithExposedHeaders("ETag", "Retry-After");

@@ -250,6 +250,24 @@ public sealed class PoliciesApiTests : IAsyncLifetime
     }
 
     [SqlServerFact]
+    public async Task PreflightFromPolicySubdomainIsAllowed()
+    {
+        using var anonymousClient = Factory.CreateClient();
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/api/v1/demo/run");
+        preflight.Headers.Add("Origin", "https://policy.naindev.com");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Headers", "accept");
+
+        var response = await anonymousClient.SendAsync(preflight);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(
+            "https://policy.naindev.com",
+            Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+        Assert.Contains("POST", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Methods")), StringComparison.Ordinal);
+    }
+
+    [SqlServerFact]
     public async Task DemoPageIsServedWithARestrictiveContentSecurityPolicy()
     {
         using var anonymousClient = Factory.CreateClient();

@@ -1,8 +1,8 @@
 # Documentation map
 
-- Document version: 0.7
+- Document version: 0.8
 - Status: Active
-- Date: 2026-09-08
+- Date: 2026-10-22
 - Owner: Aitor Nain Mendoza Vallejo
 
 ## Purpose
@@ -50,6 +50,8 @@ If two approved sources conflict and neither has precedence, the affected work s
 | `docs/decisions/ADR-005-public-demo-and-free-hosting.md` | Public demo and free hosting | 0.1 | Approved and implemented | None |
 | `docs/decisions/ADR-006-free-tier-resilience-and-demo-evidence.md` | Free-tier resilience, demo evidence and CI proof | 0.1 | Proposed | None |
 | `specs/001-portfolio-demo-resilience/` | In-flight change implementing ADR-006 | 0.1 | Proposed | None |
+| `docs/decisions/ADR-007-blueprint-first-client-presentation.md` | Blueprint-first client, honest execution source, brand tokens | 0.1 | Proposed | None |
+| `specs/002-live-architecture-blueprint/` | In-flight change implementing ADR-007 | 0.1 | Proposed | None |
 | `AGENTS.md` | Canonical constitution for agents and contributors | 0.1 | Active | None |
 | `SECURITY.md` | Vulnerability reporting and security posture | 0.1 | Active | None |
 

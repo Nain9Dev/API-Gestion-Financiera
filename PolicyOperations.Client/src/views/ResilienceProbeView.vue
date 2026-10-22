@@ -61,18 +61,8 @@ async function probeReadiness() {
   <div class="resilience-view">
     <!-- Header card -->
     <div class="glass-panel info-card">
-      <div class="badge-row">
-        <span class="badge badge-cyan">ADR-006 Approved</span>
-        <span class="badge badge-emerald">AutoPause Resilience</span>
-        <span class="badge badge-amber">Bounded Retry Strategy</span>
-      </div>
-      <h2>Cloud Resilience & Cold-Start Telemetry</h2>
-      <p class="description">
-        On free cloud tiers (Azure App Service F1 + Azure SQL Serverless), databases enter <code>AutoPause</code> after inactivity.
-        Waking up a paused database can take between 25 and 70 seconds.
-        ADR-006 eliminates false failures through an explicit 60-second command timeout, transient SQL error detection,
-        bounded retries, and non-fatal cleanup pruning.
-      </p>
+      <h2>Resilience probe</h2>
+      <p class="description">Free tier with <code>AutoPause</code> · a cold wake-up is a <code>503 + Retry-After</code>, never a <code>500</code>.</p>
 
       <div class="probe-actions">
         <button
@@ -111,7 +101,7 @@ async function probeReadiness() {
           </span>
           <span v-else class="badge badge-slate">Untested</span>
         </div>
-        <p class="card-desc">Verifies that the ASP.NET Core Kestrel HTTP host is responding.</p>
+        <p class="card-desc font-mono">GET /health</p>
 
         <div v-if="latestLiveness" class="metric-row">
           <span class="label">Roundtrip Latency:</span>
@@ -135,7 +125,7 @@ async function probeReadiness() {
           </span>
           <span v-else class="badge badge-slate">Untested</span>
         </div>
-        <p class="card-desc">Executes <code>SELECT 1</code> against SQL Server, exercising the connection pool and auto-pause wake-up budget.</p>
+        <p class="card-desc font-mono">GET /health/ready · SELECT 1</p>
 
         <div v-if="latestReadiness" class="metric-row">
           <span class="label">Roundtrip Latency:</span>
@@ -151,40 +141,36 @@ async function probeReadiness() {
     <!-- Architectural Resilience Rules Grid -->
     <div class="glass-panel rules-panel">
       <div class="panel-header">
-        <h3>ADR-006 Resilience Mechanisms</h3>
-        <span class="badge badge-cyan">Reliability Architecture</span>
+        <h3>ADR-006</h3>
+        <span class="badge badge-emerald">Approved</span>
       </div>
 
       <div class="rules-grid">
         <div class="rule-item">
           <div class="rule-number">01</div>
           <div class="rule-body">
-            <h4>60s Command Timeout</h4>
-            <p>Azure SQL Serverless wakes from AutoPause on first connection. The default 30s provider timeout would truncate this resume; 60s absorbs it cleanly.</p>
+            <h4>Command timeout 60 s</h4>
           </div>
         </div>
 
         <div class="rule-item">
           <div class="rule-number">02</div>
           <div class="rule-body">
-            <h4>HTTP 503 + Retry-After</h4>
-            <p>If transient SQL connection failures occur during a cold wake-up, the API surfaces <code>503 service_unavailable</code> with <code>Retry-After: 60</code> instead of a 500 crash.</p>
+            <h4>503 + Retry-After</h4>
           </div>
         </div>
 
         <div class="rule-item">
           <div class="rule-number">03</div>
           <div class="rule-body">
-            <h4>Non-Fatal Housekeeping Pruner</h4>
-            <p>Synthetic demo data pruning runs with bounded timeouts. Pruning failures log a warning without failing the user's ongoing policy transaction.</p>
+            <h4>Non-fatal cleanup</h4>
           </div>
         </div>
 
         <div class="rule-item">
           <div class="rule-number">04</div>
           <div class="rule-body">
-            <h4>Zero-Allocation Budget</h4>
-            <p>Zero paid cloud infrastructure authorized. Strict adherence to F1 App Service and Free Tier Azure SQL with AutoPause auto-cutoff.</p>
+            <h4>0.00 € budget</h4>
           </div>
         </div>
       </div>

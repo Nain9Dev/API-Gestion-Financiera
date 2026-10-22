@@ -7,6 +7,38 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
+## 0.9 — 2026-10-22 — Live architecture blueprint and honest execution source
+
+Governing decision: ADR-007 (`Proposed`), spec 002.
+
+### Added
+
+- `PolicyOperations.Client` opens on a live architecture blueprint: an SVG map of Client, API,
+  Application, Domain (three lifecycle states), Infrastructure and SQL Server (`Policies` and the
+  append-only `PolicyTransitions` ledger). Running the scenario replays the returned steps through
+  the map; a `412` is drawn as a rejected path at the concurrency guard and each state change
+  appends a ledger row.
+- Every run is labelled `Live` (response from the API) or `Simulated` (in-browser fallback).
+- `VITE_API_BASE_URL` with a committed `.env.production` pointing the Pages build at the Azure API.
+- `https://policy.naindev.com` added to the API CORS origins (`PreflightFromPolicySubdomainIsAllowed`).
+- Vitest in the client: `blueprintTimeline.test.ts` and `api.test.ts` (16 tests).
+- Telemetry for the ecosystem architecture drawer is emitted for live and simulated runs.
+
+### Changed
+
+- Client theme moved to the NainDev brand tokens (Urbanist, IBM Plex Mono, brand blue, green and
+  red, 4 px radius, blueprint grid). Secondary views keep their function with a title and one
+  subtitle; explanatory paragraphs removed.
+- Client wire contracts aligned to the API records (`operation`, `status`, `result`,
+  `resourceStatus`, `dataRetentionHours`, `policy`, `occurredAtUtc`, `actorSubject`,
+  `correlationId`). Before this change a live response rendered undefined values.
+
+### Known gap
+
+- `SwaggerExplainsQuotedEtagAndDocumentsJsonResponses` fails since the Scalar migration (0.8): it
+  requests `/swagger/v1/swagger.json`, which no longer exists and now answers `401`. Not caused
+  by this change; needs its own fix against the native OpenAPI document.
+
 ## 0.8 — 2026-10-14 — NainPolicy Client, OpenAPI Scalar migration and commercial alignment
 
 Governing decision: ADR-006 (`Approved`), `OPEN-012` and `OPEN-013`.

@@ -7,10 +7,21 @@ import type {
   PolicyTransitionResponse,
   ProblemDetails,
   PublicDemoRunResponse,
+  ScenarioRun,
 } from '../types/contracts';
 import { mockPolicyEngine } from './mockPolicyEngine';
+import { emitScenarioTelemetry } from './telemetry';
 
-const BASE_URL = '';
+/**
+ * Empty in development so the Vite proxy serves `/api` and `/health`.
+ * The production build reads `.env.production` and targets the public API host.
+ */
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+
+export const API_BASE_URL = BASE_URL;
+
+/** Scalar OpenAPI explorer of the API this client talks to. */
+export const DOCS_URL = BASE_URL ? `${BASE_URL}/docs` : 'http://localhost:8110/docs';
 
 export class ApiError extends Error {
   constructor(
@@ -23,41 +34,55 @@ export class ApiError extends Error {
   }
 }
 
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
 export const api = {
   /**
-   * Runs the self-contained, validated end-to-end policy lifecycle scenario.
+   * Runs the fixed five-step scenario against the configured API and says where the result came
+   * from. When the API is unreachable or answers with an error, the in-browser engine produces the
+   * same shape and the run is labelled `simulated`.
    */
-  async runPublicDemo(): Promise<PublicDemoRunResponse> {
+  async runScenario(): Promise<ScenarioRun> {
+    const started = now();
     try {
       const res = await fetch(`${BASE_URL}/api/v1/demo/run`, {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-        },
+        headers: { Accept: 'application/json' },
       });
 
       if (res.ok) {
-        return await res.json();
+        const response = (await res.json()) as PublicDemoRunResponse;
+        emitScenarioTelemetry(response.steps, 'live');
+        return { source: 'live', response, elapsedMs: Math.round(now() - started) };
       }
     } catch {
-      // Backend unreachable; execute in-browser deterministic scenario
+      // Backend unreachable: fall through to the in-browser engine.
     }
 
-    return await mockPolicyEngine.runPublicDemo();
+    const response = await mockPolicyEngine.runPublicDemo();
+    emitScenarioTelemetry(response.steps, 'simulated');
+    return { source: 'simulated', response, elapsedMs: Math.round(now() - started) };
+  },
+
+  /** Thin alias kept for views that only need the response. */
+  async runPublicDemo(): Promise<PublicDemoRunResponse> {
+    return (await api.runScenario()).response;
   },
 
   /**
    * Health probes with high-resolution client-side latency timing.
    */
   async probeHealth(endpoint: '/health' | '/health/ready'): Promise<HealthCheckResult> {
-    const start = performance.now();
+    const start = now();
     try {
       const res = await fetch(`${BASE_URL}${endpoint}`, {
         method: 'GET',
         cache: 'no-store',
       });
       if (res.ok) {
-        const durationMs = Math.round(performance.now() - start);
+        const durationMs = Math.round(now() - start);
         let details: Record<string, unknown> | undefined;
         try {
           details = await res.json();

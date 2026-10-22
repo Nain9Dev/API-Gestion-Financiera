@@ -21,7 +21,7 @@ async function fetchFromDemo() {
   errorFeedback.value = null;
   try {
     const run = await api.runPublicDemo();
-    policyIdInput.value = run.finalPolicy.id;
+    policyIdInput.value = run.policy.id;
     transitions.value = run.transitions;
   } catch (err: unknown) {
     if (err instanceof ApiError) {
@@ -68,17 +68,8 @@ onMounted(() => {
   <div class="audit-view">
     <!-- Header info card -->
     <div class="glass-panel info-card">
-      <div class="badge-row">
-        <span class="badge badge-emerald">Append-Only Immutability</span>
-        <span class="badge badge-cyan">Regulatory Compliance</span>
-        <span class="badge badge-slate">Correlation Tracing</span>
-      </div>
-      <h2>Immutable Audit Trail & Transition Ledger</h2>
-      <p class="description">
-        Financial and insurance compliance standards (such as Solvency II and IFRS 17) mandate an unalterable history of state changes.
-        In NainPolicy, transitions are recorded through an append-only table.
-        Modifications or deletions of historical records are physically prohibited at the domain and persistence levels.
-      </p>
+      <h2>Audit trail</h2>
+      <p class="description">Append-only <code>PolicyTransitions</code> · actor, reason, correlation id, UTC.</p>
 
       <div class="search-bar">
         <div class="search-input-group">
@@ -157,24 +148,24 @@ onMounted(() => {
                 </span>
               </div>
 
-              <span class="timestamp font-mono">{{ new Date(t.createdAtUtc).toLocaleString() }} UTC</span>
+              <span class="timestamp font-mono">{{ t.occurredAtUtc }}</span>
             </div>
 
             <div class="timeline-grid">
               <div class="meta-field">
-                <span class="field-label">Actor Identity (JWT sub):</span>
-                <span class="field-value font-mono">{{ t.actor }}</span>
+                <span class="field-label">actor</span>
+                <span class="field-value font-mono">{{ t.actorSubject }}</span>
               </div>
               <div class="meta-field">
-                <span class="field-label">Correlation Trace ID:</span>
-                <span class="field-value font-mono">{{ t.traceId }}</span>
+                <span class="field-label">correlation</span>
+                <span class="field-value font-mono">{{ t.correlationId }}</span>
               </div>
               <div v-if="t.reason" class="meta-field full-width">
-                <span class="field-label">Transition Reason:</span>
+                <span class="field-label">reason</span>
                 <span class="field-value text-highlight">{{ t.reason }}</span>
               </div>
               <div class="meta-field full-width">
-                <span class="field-label">Transition Record ID:</span>
+                <span class="field-label">id</span>
                 <span class="field-value font-mono text-dim">{{ t.id }}</span>
               </div>
             </div>

@@ -26,7 +26,7 @@ El objetivo no es aparentar un SaaS terminado, sino demostrar con código limpio
 
 | Quiero… | Dónde |
 |---|---|
-| Explorar el showcase interactivo (Vue 3) | Demo en vivo en [https://policy.naindev.com](https://policy.naindev.com) o local en puerto `5375` (workbench de ciclo de vida, lab de concurrencia y telemetría) |
+| Ver la arquitectura en vivo (Vue 3) | [https://policy.naindev.com](https://policy.naindev.com): un blueprint que recorre cada paso real por las capas, el `412` del guard de concurrencia y el ledger append-only. Cada ejecución indica si es `Live` o `Simulated` |
 | Ver la documentación de la API | [Scalar Docs](http://localhost:8110/docs) (OpenAPI .NET 10 nativo en `/docs`) |
 | Ver el flujo funcionando online | [Demo pública](https://policy.naindev.com/) — un clic, sin registro |
 | Reproducirlo yo mismo | `curl -i -X POST "https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run" -H "Accept: application/json"` |

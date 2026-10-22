@@ -1,37 +1,45 @@
+/**
+ * Wire contracts of PolicyOperations.Api. Field names mirror the C# records
+ * (PolicyResponse, PolicyTransitionResponse, PublicDemoRunResponse, PublicDemoStepResponse)
+ * serialised with camelCase and string enums.
+ */
+
 export type PolicyStatus = 'Draft' | 'Active' | 'Cancelled';
 
 export interface PolicyResponse {
   id: string;
+  organizationId: string;
   policyNumber: string;
-  status: PolicyStatus;
   insuredAmount: number;
   currency: string;
   insuredPartyReference: string | null;
   coverageStartDate: string | null;
   coverageEndDate: string | null;
-  cancellationReason: string | null;
-  version: string;
+  status: PolicyStatus;
   createdAtUtc: string;
-  updatedAtUtc: string;
+  version: string;
 }
 
 export interface PolicyTransitionResponse {
   id: string;
+  policyId: string;
   fromStatus: PolicyStatus;
   toStatus: PolicyStatus;
-  actor: string;
-  traceId: string;
+  occurredAtUtc: string;
+  actorSubject: string;
   reason: string | null;
-  createdAtUtc: string;
+  correlationId: string;
 }
 
+export type PublicDemoStepResult = 'succeeded' | 'rejected_as_expected';
+
 export interface PublicDemoStepResponse {
-  stepKey: string;
+  operation: string;
   method: string;
   path: string;
-  expectedStatus: number;
-  outcome: string;
-  resultingStatus: string | null;
+  status: number;
+  result: PublicDemoStepResult;
+  resourceStatus: string | null;
   etag: string | null;
   errorCode: string | null;
   durationMs: number;
@@ -40,12 +48,22 @@ export interface PublicDemoStepResponse {
 export interface PublicDemoRunResponse {
   runId: string;
   executedAtUtc: string;
-  retentionHours: number;
+  dataRetentionHours: number;
   totalDurationMs: number;
   cleanupCompleted: boolean;
   steps: PublicDemoStepResponse[];
-  finalPolicy: PolicyResponse;
+  policy: PolicyResponse;
   transitions: PolicyTransitionResponse[];
+}
+
+/** Where a scenario result came from. A simulated run is never presented as live evidence. */
+export type ScenarioSource = 'live' | 'simulated';
+
+export interface ScenarioRun {
+  source: ScenarioSource;
+  response: PublicDemoRunResponse;
+  /** Wall-clock time observed by the browser, including any free-tier wake-up. */
+  elapsedMs: number;
 }
 
 export interface ProblemDetails {

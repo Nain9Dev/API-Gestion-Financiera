@@ -7,6 +7,19 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
+## 0.12 — 2026-10-26 — Prewarm the live demo
+
+Governing spec: 004 (`Proposed`).
+
+- The client sends one `GET /health/ready` when it loads, so the free-tier database wakes while the
+  visitor reads the page, and shows a `Waking free-tier database` / `Database ready` status.
+- A live run now waits at most 6 s; if the API has not answered, the in-browser result is shown and
+  labelled `Simulated`. Before, a run on a paused database could hang for up to 100 s.
+- The blueprint replay now steps every 0.3 s instead of 1.15 s: a warm live run goes from click to
+  the last frame in about 1.4 s (measured 1.36 to 1.40 s against Azure); it took about 6 s before.
+  The step pause lives in `replayDelayMs` (`blueprintTimeline.ts`).
+- No API, persistence, cost or infrastructure change.
+
 ## 0.11 — 2026-10-26 — Azure redeploy
 
 Deployed the current build to the existing App Service (`T-019`, `T-116`): ADR-006 resilience and

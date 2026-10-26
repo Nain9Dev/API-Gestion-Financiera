@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PublicDemoStepResponse } from '../types/contracts';
-import { buildTimeline, IDLE_FRAME } from './blueprintTimeline';
+import { buildTimeline, IDLE_FRAME, replayDelayMs, VISUAL_TRANSITION_MS } from './blueprintTimeline';
 
 const policyPath = '/api/v1/policies/9f1c7a52-0000-4000-8000-000000000001';
 
@@ -111,5 +111,33 @@ describe('buildTimeline', () => {
     expect(frame.tone).toBe('rejected');
     expect(frame.domainState).toBe('None');
     expect(frame.ledgerRows).toBe(0);
+  });
+});
+
+describe('replayDelayMs (spec 004)', () => {
+  const frames = [0, 1, 2, 3, 4];
+
+  it('finishes the five-frame replay within 1.5 s including the visual transition (REQ-137)', () => {
+    const lastStart = replayDelayMs(frames.length - 1, false);
+
+    expect(lastStart).toBeLessThanOrEqual(1200);
+    expect(lastStart + VISUAL_TRANSITION_MS).toBeLessThanOrEqual(1500);
+  });
+
+  it('starts the first frame immediately (REQ-137)', () => {
+    expect(replayDelayMs(0, false)).toBe(0);
+  });
+
+  it('keeps frames in order, each strictly after the previous (REQ-138)', () => {
+    for (const reduced of [false, true]) {
+      const delays = frames.map((i) => replayDelayMs(i, reduced));
+      for (let i = 1; i < delays.length; i++) expect(delays[i]).toBeGreaterThan(delays[i - 1]);
+    }
+  });
+
+  it('never starts a frame later under reduced motion than with motion allowed (REQ-138)', () => {
+    for (const i of frames) {
+      expect(replayDelayMs(i, true)).toBeLessThanOrEqual(replayDelayMs(i, false));
+    }
   });
 });

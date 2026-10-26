@@ -141,6 +141,15 @@ Suite `C` — `PolicyOperations.Client` Vitest (`npm test`, no browser).
 | `REQ-102` successful command lights every layer and moves the domain state | C | `lights every layer down to SQL Server for a successful lifecycle command`, `moves the domain state to the resulting status of each successful command` |
 | `REQ-103` `412` stops at the concurrency guard without state or ledger change | C | `draws a 412 as a rejected path stopped at the concurrency guard, without touching state or ledger` |
 | `REQ-104` one ledger row per transition, two at the end | C | `appends one ledger row per state transition so a full run ends with two rows` |
+| `REQ-130` client sends one `GET /health/ready` on load (spec 004) | C | `sends one GET /health/ready to the configured API` |
+| `REQ-131` wake-up sent at most once per page load | C | `sends the wake-up at most once however often it is requested` |
+| `REQ-132` ready only on 200; error, network failure or 120 s is unavailable, never simulated | C | `reports ready when the API answers 200`, `reports unavailable on an error status…`, `…when the network fails`, `gives up after 120 s…` |
+| `REQ-133` waking status shown near the run button | C | `notifies subscribers so the view can show the waking status` (state); chip observed in a browser run |
+| `REQ-134` live run waits at most 6 s, then simulated | C | `aborts after 6 s and answers with a run labelled simulated`, `keeps waiting while the answer is still inside the limit` |
+| `REQ-135` fast live run stays labelled `live` | C | `labels a fast answer live` |
+| `REQ-136` run does not depend on a pending wake-up | C | `does not wait for a pending wake-up before running` |
+| `REQ-137` replay of five frames finishes within 1.5 s (spec 004) | C | `finishes the five-frame replay within 1.5 s including the visual transition`, `starts the first frame immediately`; browser run: 1.36 to 1.40 s click to done against Azure |
+| `REQ-138` frames in order; reduced motion never later | C | `keeps frames in order, each strictly after the previous`, `never starts a frame later under reduced motion…` |
 | `REQ-110` run labelled `live` or `simulated` by source | C | `labels a 200 from the configured API as live…`, `labels the in-browser fallback as simulated when the network fails`, `…when the API answers with an error status` |
 | `REQ-111` base URL from `VITE_API_BASE_URL`, same-origin when absent | C | `prefixes the request with VITE_API_BASE_URL…`, `keeps same-origin paths when VITE_API_BASE_URL is absent`, `derives the OpenAPI explorer link from the same base URL` |
 | `REQ-112` CORS accepts `https://policy.naindev.com` | I | `PreflightFromPolicySubdomainIsAllowed` |

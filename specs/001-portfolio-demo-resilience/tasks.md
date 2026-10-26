@@ -26,7 +26,7 @@
 | `T-016` | Update `README.md`, `docs/README.md`, `docs/architecture.md`, `docs/business-rules.md`, `docs/public-demo.md`, `docs/project-context.md` | `[A]` | Done |
 | `T-017` | Apply global security headers and static-asset caching | `[A]` | Done |
 | `T-018` | Approve or reject ADR-006 and flip the affected rules to `Approved` | `[H]` | Done (Approved) |
-| `T-019` | Deploy the fix to Azure and re-run the cold public smoke test | `[M]` | Pending owner deployment |
+| `T-019` | Deploy the fix to Azure and re-run the cold public smoke test | `[M]` | Deployed 2026-10-26 (zip deploy, `RuntimeSuccessful`); warm smoke and CORS verified; true cold run after a long idle not yet timed |
 | `T-020` | Decide `OPEN-012` (static demo page on naindev.com + CORS) | `[H]` | Done (Approved: CORS enabled for localhost:5375 & naindev.com with ETag and Retry-After) |
 | `T-021` | Decide `OPEN-013` (commercial brand naming) | `[H]` | Done (Approved: Brand name selected as NainPolicy for naindev.com portfolio) |
 

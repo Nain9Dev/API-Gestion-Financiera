@@ -117,14 +117,14 @@ describe('buildTimeline', () => {
 describe('replayDelayMs (spec 004)', () => {
   const frames = [0, 1, 2, 3, 4];
 
-  it('finishes the five-frame replay within 1.5 s including the visual transition (REQ-137)', () => {
+  it('finishes the five-frame replay within 1.1 s including the visual transition (REQ-146)', () => {
     const lastStart = replayDelayMs(frames.length - 1, false);
 
-    expect(lastStart).toBeLessThanOrEqual(1200);
-    expect(lastStart + VISUAL_TRANSITION_MS).toBeLessThanOrEqual(1500);
+    expect(lastStart).toBeLessThanOrEqual(800);
+    expect(lastStart + VISUAL_TRANSITION_MS).toBeLessThanOrEqual(1100);
   });
 
-  it('starts the first frame immediately (REQ-137)', () => {
+  it('starts the first frame immediately (REQ-146)', () => {
     expect(replayDelayMs(0, false)).toBe(0);
   });
 

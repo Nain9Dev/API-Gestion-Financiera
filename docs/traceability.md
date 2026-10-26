@@ -141,7 +141,15 @@ Suite `C` — `PolicyOperations.Client` Vitest (`npm test`, no browser).
 | `REQ-102` successful command lights every layer and moves the domain state | C | `lights every layer down to SQL Server for a successful lifecycle command`, `moves the domain state to the resulting status of each successful command` |
 | `REQ-103` `412` stops at the concurrency guard without state or ledger change | C | `draws a 412 as a rejected path stopped at the concurrency guard, without touching state or ledger` |
 | `REQ-104` one ledger row per transition, two at the end | C | `appends one ledger row per state transition so a full run ends with two rows` |
-| `REQ-130` client sends one `GET /health/ready` on load (spec 004) | C | `sends one GET /health/ready to the configured API` |
+| `REQ-140` no API contact until the visitor shows intent (spec 005) | C | `does nothing until the visitor shows intent`, `can be disarmed…`; browser: 0 requests before input |
+| `REQ-141` first intent signal starts the wake-up once | C | `starts the wake-up on pointermove / pointerdown / touchstart / keydown / scroll`, `ignores every signal after the first`, `lists exactly the intent signals…` |
+| `REQ-142` a run without earlier intent starts the wake-up | C | `starts the wake-up as part of a run that had no earlier intent` |
+| `REQ-143` pending wake-up: wait at most 0.8 s, then simulated without a demo request | C | `runs live when the pending wake-up becomes ready within 0.8 s`, `answers simulated without sending the demo request…` |
+| `REQ-144` otherwise the demo request has a 2 s limit | C | `aborts the demo request after 2 s…`, `keeps waiting while the demo answer is inside the 2 s limit`, `still tries the demo request when the wake-up was unavailable` |
+| `REQ-145` live answer inside the limit is labelled `live` | C | `labels a fast answer live` |
+| `REQ-146` replay ends within 1.1 s (spec 005) | C | `finishes the five-frame replay within 1.1 s…`, `starts the first frame immediately`; browser: 0.97 to 0.98 s click to done on a warm database |
+| `REQ-147` owner cost-guard steps documented | — | Review: `specs/005-intent-warmup-cost-guard/azure-cost-guard-runbook.md` |
+| `REQ-130` (replaced by `REQ-140` to `REQ-142`) client sends one `GET /health/ready` on load (spec 004) | C | `sends one GET /health/ready to the configured API` |
 | `REQ-131` wake-up sent at most once per page load | C | `sends the wake-up at most once however often it is requested` |
 | `REQ-132` ready only on 200; error, network failure or 120 s is unavailable, never simulated | C | `reports ready when the API answers 200`, `reports unavailable on an error status…`, `…when the network fails`, `gives up after 120 s…` |
 | `REQ-133` waking status shown near the run button | C | `notifies subscribers so the view can show the waking status` (state); chip observed in a browser run |

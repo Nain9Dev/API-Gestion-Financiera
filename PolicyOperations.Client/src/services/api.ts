@@ -38,8 +38,10 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
-/** Longest a visitor waits for a live run before the in-browser result is shown (spec 004). */
-const RUN_TIMEOUT_MS = 6_000;
+/** Longest the demo request may take before the in-browser result is shown (spec 005). */
+const RUN_TIMEOUT_MS = 2_000;
+/** Longest a run waits for a wake-up that is still pending before it stops trying live (spec 005). */
+const WARM_GRACE_MS = 800;
 /** The free-tier database can need up to two minutes to resume (spec 004). */
 const WARM_UP_TIMEOUT_MS = 120_000;
 
@@ -102,6 +104,18 @@ export const api = {
   async runScenario(): Promise<ScenarioRun> {
     const started = now();
     try {
+      // A run is itself intent: start the wake-up if no earlier signal did. While it is still
+      // pending the database is asleep, so the demo request would only hang; give it a short
+      // grace and otherwise answer from the browser without spending free quota.
+      const warm = api.warmUp();
+      if (api.getWarmState() === 'pending') {
+        const settled = await Promise.race([
+          warm,
+          new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), WARM_GRACE_MS)),
+        ]);
+        if (settled === 'timeout') throw new Error('database still waking');
+      }
+
       const res = await fetchWithin(RUN_TIMEOUT_MS, `${BASE_URL}/api/v1/demo/run`, {
         method: 'POST',
         headers: { Accept: 'application/json' },

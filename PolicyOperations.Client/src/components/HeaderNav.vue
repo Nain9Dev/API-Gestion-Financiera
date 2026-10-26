@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { DOCS_URL } from '../services/api';
+import { currentLocale, setLocale, t } from '../locales/i18n';
 
 defineProps<{
   activeTab: string;
@@ -11,13 +13,13 @@ const emit = defineEmits<{
   (e: 'openTokenModal'): void;
 }>();
 
-const tabs = [
-  { id: 'scenario', label: 'Blueprint' },
-  { id: 'workbench', label: 'Lifecycle' },
-  { id: 'concurrency', label: 'Concurrency' },
-  { id: 'audit', label: 'Audit' },
-  { id: 'resilience', label: 'Resilience' },
-];
+const tabs = computed(() => [
+  { id: 'scenario', label: t('tabBlueprint') },
+  { id: 'workbench', label: t('tabLifecycle') },
+  { id: 'concurrency', label: t('tabConcurrency') },
+  { id: 'audit', label: t('tabAudit') },
+  { id: 'resilience', label: t('tabResilience') },
+]);
 </script>
 
 <template>
@@ -39,30 +41,52 @@ const tabs = [
         </svg>
         <div class="brand-text">
           <h1 class="gradient-title">NainPolicy</h1>
-          <span class="eyebrow">Policy operations · .NET 10 · SQL Server</span>
+          <span class="eyebrow">{{ t('eyebrow') }}</span>
         </div>
       </div>
 
       <div class="actions">
+        <div class="lang-switch-group" role="group" aria-label="Language selector">
+          <button
+            type="button"
+            class="lang-btn"
+            :class="{ active: currentLocale === 'es' }"
+            @click="setLocale('es')"
+            aria-label="Español de España"
+          >
+            ES
+          </button>
+          <span class="lang-divider">|</span>
+          <button
+            type="button"
+            class="lang-btn"
+            :class="{ active: currentLocale === 'en' }"
+            @click="setLocale('en')"
+            aria-label="English"
+          >
+            EN
+          </button>
+        </div>
+
         <button type="button" class="btn btn-secondary token-btn" @click="emit('openTokenModal')">
           <span :class="['status-dot', hasToken ? 'on' : 'off']" aria-hidden="true"></span>
-          <span>{{ hasToken ? 'JWT' : 'JWT' }}</span>
+          <span>JWT</span>
         </button>
-        <a :href="DOCS_URL" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">OpenAPI</a>
-        <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Source</a>
+        <a :href="DOCS_URL" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">{{ t('openApi') }}</a>
+        <a href="https://github.com/Nain9Dev/API-Gestion-Financiera" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">{{ t('sourceCode') }}</a>
       </div>
     </div>
 
     <nav class="tabs" aria-label="Sections">
       <button
-        v-for="t in tabs"
-        :key="t.id"
+        v-for="tabItem in tabs"
+        :key="tabItem.id"
         type="button"
-        :class="['tab', { active: activeTab === t.id }]"
-        :aria-current="activeTab === t.id ? 'page' : undefined"
-        @click="emit('update:activeTab', t.id)"
+        :class="['tab', { active: activeTab === tabItem.id }]"
+        :aria-current="activeTab === tabItem.id ? 'page' : undefined"
+        @click="emit('update:activeTab', tabItem.id)"
       >
-        {{ t.label }}
+        {{ tabItem.label }}
       </button>
     </nav>
   </header>
@@ -118,6 +142,45 @@ const tabs = [
   font-size: 0.78rem;
   font-family: var(--font-mono);
   letter-spacing: 0.06em;
+}
+
+.lang-switch-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 6px;
+  gap: 4px;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: all 0.15s ease;
+}
+
+.lang-btn:hover {
+  color: #ffffff;
+}
+
+.lang-btn.active {
+  color: var(--brand-green);
+  background: rgba(128, 255, 0, 0.12);
+}
+
+.lang-divider {
+  color: var(--border-subtle);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  user-select: none;
 }
 
 .status-dot {

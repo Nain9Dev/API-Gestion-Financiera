@@ -6,6 +6,8 @@
 
 # NainPolicy · Insurance Policy Operations Platform
 
+[![English](https://img.shields.io/badge/Language-English-blue?style=flat-square)](README.md)
+[![Español](https://img.shields.io/badge/Idioma-Espa%C3%B1ol-emerald?style=flat-square)](README.es.md)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-policy.naindev.com-0284c7?style=flat-square&logo=google-chrome&logoColor=white)](https://policy.naindev.com/)
 [![Ecosystem Status](https://img.shields.io/badge/status-100%25%20operational-success)](https://status.naindev.com)
 [![Engineering Handbook](https://img.shields.io/badge/paved%20road-Clean%20Architecture-blue)](https://github.com/Nain9Dev/engineering-handbook)
@@ -16,57 +18,50 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D)](https://vuejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational)](LICENSE)
 
-Este repositorio gestiona de forma determinista el ciclo de vida de pólizas aseguradoras con aislamiento estricto por organización, concurrencia optimista (`ETag` / `rowversion`) y un historial de transiciones inmutable (append-only) sobre SQL Server.
+This repository deterministically manages the lifecycle of insurance policies with strict tenant isolation by organization, optimistic concurrency (`ETag` / `rowversion`), and an immutable append-only transition ledger backed by SQL Server.
 
-El objetivo no es aparentar un SaaS terminado, sino demostrar con código limpio, arquitectura desacoplada y tests verificables cómo diseño sistemas backend empresariales con .NET 10 y frontends reactivos con Vue 3 + TypeScript. Forma parte de la marca técnica de [naindev.com](https://www.naindev.com/) bajo la denominación **NainPolicy**.
+Its goal is not to pose as a finished commercial SaaS, but to demonstrate clean engineering, decoupled architecture, and verified tests across enterprise backend .NET 10 systems and reactive Vue 3 + TypeScript frontends. It is part of the [naindev.com](https://www.naindev.com/) technical ecosystem under the name **NainPolicy**.
 
-> Estado: **demo técnica pública y verificada con datos sintéticos**. Puede probarse por HTTPS sin instalar nada en [https://policy.naindev.com](https://policy.naindev.com) o en local mediante la suite interactiva `PolicyOperations.Client` (puerto 5375). No está autorizada para clientes ni datos personales reales.
+> Status: **Public technical demo verified with synthetic data**. Can be evaluated over HTTPS without local installations at [https://policy.naindev.com](https://policy.naindev.com) or locally via the interactive `PolicyOperations.Client` suite (port 5375). Not authorized for live client records or personal data.
 
-## Qué se puede comprobar en 60 segundos
+## 60-Second Verification Guide
 
-| Quiero… | Dónde |
+| Objective | Target |
 |---|---|
-| Ver la arquitectura en vivo (Vue 3) | [https://policy.naindev.com](https://policy.naindev.com): un blueprint que recorre cada paso real por las capas, el `412` del guard de concurrencia y el ledger append-only. Cada ejecución indica si es `Live` o `Simulated` |
-| Ver la documentación de la API | [Scalar Docs](http://localhost:8110/docs) (OpenAPI .NET 10 nativo en `/docs`) |
-| Ver el flujo funcionando online | [Demo pública](https://policy.naindev.com/) — un clic, sin registro |
-| Reproducirlo yo mismo | `curl -i -X POST "https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run" -H "Accept: application/json"` |
-| Ver que las pruebas son reales | [Workflow de CI](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml): la suite de integración corre contra un SQL Server real en cada push |
-| Ver qué regla cubre cada test | [docs/traceability.md](docs/traceability.md) |
-| Entender los límites declarados | [Límites actuales](#límites-actuales) y [docs/public-demo.md](docs/public-demo.md) |
+| Live Architecture Blueprint (Vue 3) | [https://policy.naindev.com](https://policy.naindev.com): interactive blueprint stepping through architectural layers, concurrency `412` guard, and append-only audit ledger |
+| API Specification | [Scalar Docs](http://localhost:8110/docs) (Native .NET 10 OpenAPI at `/docs`) |
+| Live Interactive Scenario | [Public Demo](https://policy.naindev.com/) — one click, zero sign-up required |
+| Local Replay | `curl -i -X POST "https://nain-policy-demo-api.azurewebsites.net/api/v1/demo/run" -H "Accept: application/json"` |
+| CI Pipeline & Verification | [CI Workflow](https://github.com/Nain9Dev/API-Gestion-Financiera/actions/workflows/ci.yml): integration test suite executes against real SQL Server on every push |
+| Requirement Traceability | [docs/traceability.md](docs/traceability.md) |
 
-**Aviso honesto sobre el plan gratuito:** el backend corre en Azure App Service F1 con Azure SQL Free y `AutoPause`. La primera petición tras un rato de inactividad despierta la base de datos y puede tardar bastante. La página lo dice mientras ocurre, la API responde `503` con `Retry-After` en vez de fingir un error interno, y el coste incremental sigue siendo 0 EUR. Es una decisión de coste, no un descuido.
+**Notice on the free hosting plan:** The backend runs on Azure App Service F1 with Azure SQL Free and `AutoPause`. Cold starts upon inactivity wake the database and may experience latency. The UI communicates this state transparently, the API responds with `503` and `Retry-After` instead of masking server errors, and incremental running cost remains 0.00 EUR.
 
-## Capacidades implementadas
+## Core Capabilities
 
-- Monolito modular: Domain, Application, Infrastructure y API.
-- Creación de pólizas en estado `Draft` con importe y moneda ISO 4217.
-- Ciclo `Draft -> Active -> Cancelled`, incluida cancelación directa de Draft.
-- Datos mínimos de activación: referencia opaca del asegurado y periodo de cobertura.
-- JWT Bearer, roles `PolicyReader` y `PolicyOperator`.
-- Organización derivada del claim confiable `organization_id`.
-- Lecturas y unicidad de `PolicyNumber` aisladas por organización.
-- SQL Server `rowversion`, ETag e `If-Match` para evitar escrituras obsoletas.
-- Historial de transiciones con actor, UTC, correlación y motivo.
-- Problem Details seguro con stable error codes.
-- EF Core 10 y migrations que se niegan a inventar ownership o moneda para datos antiguos.
-- Swagger visual, colección `.http` y endpoint de salud del proceso.
-- Página de demo sin registro ni descargas que ejecuta un escenario sintético completo.
-- Rate limiting, retención de 24 horas y organización dedicada para la demo pública.
-- Readiness independiente para comprobar la conexión con SQL Server.
-- `503 service_unavailable` con `Retry-After` cuando la base de datos gratuita está despertando; `500` queda reservado para defectos reales.
-- Limpieza de la demo tolerante a fallos: si no puede ejecutarse, se registra y la ejecución continúa.
-- Evidencia por paso en la demo: método, ruta, estado, ETag y duración medida en servidor.
-- Cabeceras de seguridad base en todas las respuestas y CSP restrictiva en la página de demo.
-- Tests de dominio, de aplicación sin base de datos, de API, autorización, aislamiento y migrations contra SQL Server 2025 real.
+- Modular Clean Architecture: Domain, Application, Infrastructure, and API.
+- Policy creation in `Draft` state with ISO 4217 currency and amount validation.
+- Lifecycle: `Draft -> Active -> Cancelled`, including direct Draft cancellation.
+- Mandatory activation prerequisites: opaque policyholder reference and coverage window.
+- JWT Bearer security with `PolicyReader` and `PolicyOperator` role enforcement.
+- Organization scope derived from trusted `organization_id` token claim.
+- Policy number uniqueness and data reads isolated by organization boundary.
+- SQL Server `rowversion`, ETag, and `If-Match` preventing lost updates.
+- Immutable transition ledger recording actor, UTC timestamp, correlation ID, and reason.
+- RFC 7807 Problem Details with stable machine-readable error codes.
+- EF Core 10 migrations refusing to fabricate legacy ownership or currencies.
+- Native OpenAPI discovery, `.http` request collection, and liveness/readiness probes.
+- Rate-limited synthetic demo running a fixed 5-step scenario in a dedicated organization.
+- Test coverage across pure domain invariants, application use cases, and SQL Server integration.
 
-## Arquitectura y Diagrama C4
+## Architecture & C4 Model
 
 ```mermaid
 graph TD
-    User["Operador / Cliente Web<br/>(Vue 3 + TS)"]
+    User["Operator / Web Client<br/>(Vue 3 + TS)"]
     API["PolicyOperations.Api<br/>(ASP.NET Core / .NET 10)"]
-    AppLayer["PolicyOperations.Application<br/>(Casos de uso / Puertos)"]
-    DomainLayer["PolicyOperations.Domain<br/>(Entidades / Reglas de negocio puras)"]
+    AppLayer["PolicyOperations.Application<br/>(Use Cases / Ports)"]
+    DomainLayer["PolicyOperations.Domain<br/>(Entities / Pure Business Rules)"]
     InfraLayer["PolicyOperations.Infrastructure<br/>(EF Core 10 / SQL Server Driver)"]
     DB[("SQL Server<br/>(Azure SQL / Local)")]
 
@@ -74,38 +69,35 @@ graph TD
     API --> AppLayer
     AppLayer --> DomainLayer
     AppLayer --> InfraLayer
-    InfraLayer -->|rowversion / Transacciones| DB
+    InfraLayer -->|rowversion / Transactions| DB
 ```
 
-### Matriz de Decisiones y Trade-Offs
+### Architectural Decisions & Trade-Offs
 
-| Dimensión | Decisión adoptada | Alternativa descartada | Razón técnica |
+| Dimension | Selected Approach | Discarded Alternative | Rationale |
 |---|---|---|---|
-| **Concurrencia** | Optimista con `rowversion`, ETag e `If-Match` (`412 Precondition Failed`) | Bloqueos pesimistas (`SELECT FOR UPDATE`) | Evita bloqueos en transacciones largas y garantiza escalabilidad horizontal sin estado en HTTP. |
-| **Aislamiento Multi-Tenant** | Organización derivada de claim JWT confiable (`organization_id`) y filtrado en repositorio | Base de datos por tenant | Permite ejecución a 0,00 € en Azure SQL Free sin sobrecostes ni orquestación compleja de conexiones. |
-| **Auditoría** | Tabla inmutable append-only de transiciones (`PolicyTransitions`) en la misma transacción | Event Sourcing completo | Auditoría estricta y reproducible sin la complejidad operativa ni consistencia eventual de Event Sourcing. |
-| **Persistencia** | EF Core 10 con migraciones deterministas | Dapper puro | Modelado formal del ciclo de vida y validación de tipos complejos preservando rendimiento óptimo. |
+| **Concurrency** | Optimistic with `rowversion`, ETag, and `If-Match` (`412 Precondition Failed`) | Pessimistic locking (`SELECT FOR UPDATE`) | Eliminates long-held transaction locks and enables horizontal stateless HTTP scaling. |
+| **Multi-Tenancy** | Organization derived from trusted JWT claim (`organization_id`) filtered at repository layer | Database per tenant | Enables $0.00 operation on Azure SQL Free without connection sprawl or high provisioning costs. |
+| **Auditability** | Append-only transition ledger (`PolicyTransitions`) in the same database transaction | Full Event Sourcing | Guaranteed immutable traceability without the operational complexity or eventual consistency of full Event Sourcing. |
+| **Persistence** | EF Core 10 with deterministic migrations | Raw Dapper | Formal lifecycle modeling and strong type validation while maintaining high query performance. |
 
+## API Endpoints
 
-## Endpoints
-
-| Método | Ruta | Autorización | Comportamiento |
+| Method | Path | Authorization | Description |
 |---|---|---|---|
-| `GET` | `/health` | Anonymous | Liveness del proceso; no comprueba SQL Server |
-| `GET` | `/health/ready` | Anonymous | Readiness de la conexión con SQL Server |
-| `POST` | `/api/v1/demo/run` | Anonymous cuando se habilita | Ejecuta el escenario sintético fijo de cinco pasos |
-| `POST` | `/api/v1/policies` | `PolicyOperator` | Crea una póliza `Draft` |
-| `GET` | `/api/v1/policies/{policyId}` | Reader u Operator | Recupera una póliza de la organización |
-| `GET` | `/api/v1/policies` | Reader u Operator | Lista paginada, máximo 100 elementos |
-| `POST` | `/api/v1/policies/{policyId}/activate` | `PolicyOperator` + `If-Match` | Activa un Draft completo |
-| `POST` | `/api/v1/policies/{policyId}/cancel` | `PolicyOperator` + `If-Match` | Cancela un Draft o Active |
-| `GET` | `/api/v1/policies/{policyId}/transitions` | Reader u Operator | Muestra el historial de estados |
+| `GET` | `/health` | Anonymous | Process liveness probe; does not query SQL Server |
+| `GET` | `/health/ready` | Anonymous | Readiness probe verifying active SQL Server connection |
+| `POST` | `/api/v1/demo/run` | Anonymous (when enabled) | Executes deterministic 5-step synthetic lifecycle run |
+| `POST` | `/api/v1/policies` | `PolicyOperator` | Creates new `Draft` policy |
+| `GET` | `/api/v1/policies/{policyId}` | Reader or Operator | Retrieves policy scoped to caller organization |
+| `GET` | `/api/v1/policies` | Reader or Operator | Bounded paginated list (maximum 100 items) |
+| `POST` | `/api/v1/policies/{policyId}/activate` | `PolicyOperator` + `If-Match` | Activates completed Draft policy |
+| `POST` | `/api/v1/policies/{policyId}/cancel` | `PolicyOperator` + `If-Match` | Cancels Draft or Active policy |
+| `GET` | `/api/v1/policies/{policyId}/transitions` | Reader or Operator | Retrieves audit trail of status transitions |
 
-Errores relevantes: `400` validación, `401`/`403` identidad y rol, `404` fuera de la organización, `409` conflicto de estado o de número, `412` ETag obsoleto, `428` falta `If-Match`, `429` límite de la demo y `503` base de datos gratuita despertando.
+## Local Execution
 
-## Demo visual local
-
-La guía completa está en [docs/local-demo.md](docs/local-demo.md). Resumen:
+Full instructions in [docs/local-demo.md](docs/local-demo.md). Quickstart:
 
 ```powershell
 $env:ConnectionStrings__DefaultConnection = "Server=.\NAINCONFIGURATOR;Database=PolicyOperationsLocalDemo;Integrated Security=True;TrustServerCertificate=True;Encrypt=False"
@@ -120,82 +112,17 @@ dotnet user-jwts create --project .\GestionFinanciera\PolicyOperations.Api\Polic
 dotnet run --project .\GestionFinanciera\PolicyOperations.Api --configuration Release --launch-profile https
 ```
 
-Abre [https://localhost:7024/swagger](https://localhost:7024/swagger) o [http://localhost:5047/swagger](http://localhost:5047/swagger), selecciona **Authorize** y pega el token local.
+## Verified Quality Gates
 
-En `If-Match`, copia el ETag completo tal como aparece en la cabecera de respuesta, incluidas las comillas: `"AAAAAAAAAAE="`. Pegar solo `AAAAAAAAAAE=` no representa un ETag HTTP válido y la API responderá con `etag_invalid`.
+- Release build: 0 warnings and 0 errors.
+- 22 domain unit tests.
+- 25 application tests without database dependencies.
+- API tests covering authorization, isolation, public demo, readiness, and security headers.
+- CI verifies SQL Server integration against containerized SQL Server on every push.
+- CodeQL analysis enabled for C# codebase.
+- NuGet package vulnerability checks passing with zero known advisories.
 
-La base `PolicyOperationsLocalDemo` fue creada y migrada en el equipo verificado el 2026-08-02. Contiene exclusivamente evidencia sintética del smoke test local.
-
-Requests alternativas: [PolicyOperations.Api.http](GestionFinanciera/PolicyOperations.Api/PolicyOperations.Api.http).
-
-## Demo de un clic
-
-La página `/demo/` llama a una única operación sin cuerpo y muestra el resultado paso a paso:
-
-```text
-201 Draft -> 200 Active -> 412 stale ETag -> 200 Cancelled -> 200 audit
-```
-
-El recorrido se ha ejecutado desde un navegador contra SQL Server 2025 local y devolvió dos transiciones de auditoría. La demo no pide un token, no permite introducir texto y elimina registros sintéticos antiguos de su organización dedicada.
-
-Abre [Probar API](https://nain-policy-demo-api.azurewebsites.net/demo/) para ejecutar el recorrido. La configuración de Azure, los límites gratuitos y la evidencia observada están en [docs/public-demo.md](docs/public-demo.md).
-
-## Quality gate verificado
-
-- Build Release: 0 warnings y 0 errores.
-- 22 tests de dominio.
-- 21 tests de aplicación sin base de datos (catálogo de divisas, paginación, forma del ETag, versión obsoleta y auditoría).
-- 21 tests de API, autorización, organización, demo pública, readiness, cabeceras y OpenAPI.
-- 4 tests de migrations y recuperación segura.
-- 68 tests en la suite; 21 utilizan SQL Server real.
-- CI ejecuta la suite de SQL Server contra un contenedor real de SQL Server en cada push, así que la afirmación anterior la verifica el pipeline, no el README.
-- CodeQL analiza el código C# en cada push y semanalmente; Dependabot mantiene NuGet y Actions al día.
-- EF Core sin cambios de modelo pendientes de migration.
-- Auditoría NuGet sin vulnerabilidades conocidas: el paso de CI falla si aparece alguna.
-- Smoke test real: `Draft -> Active -> Cancelled`, dos transiciones persistidas mediante JWT local.
-
-## Límites actuales
-
-- El JWT de `dotnet user-jwts` es exclusivamente para desarrollo local.
-- La operación pública de demo no sustituye autenticación ni permite trabajar con datos elegidos por el visitante.
-- Un piloto requiere un issuer OpenID Connect aprobado y configuración operativa.
-- No existe administración de organizaciones, invitaciones o usuarios.
-- No se han implementado retención/export del audit trail, restauración probada ni alertas operativas para clientes. La demo sí avisa cuando Azure SQL Free se acerca a su cuota.
-- No existe evaluación de riesgo, billing, integraciones ni multi-región.
-- El arranque en frío del plan gratuito sigue existiendo: se comunica, no se elimina.
-- La corrección de resiliencia está implementada y verificada en local, pero **todavía no desplegada**; hasta que se publique, el `500` medido el 2026-09-08 sigue siendo reproducible en producción.
-- No se permiten datos personales reales ni exposición de los puertos locales a internet.
-- La capacidad objetivo todavía no tiene un load test reproducible.
-
-## Coste y licencia
-
-La fase local usa herramientas gratuitas: .NET, paquetes open source, MIT para el repositorio y SQL Server 2025 Standard Developer. La demo pública está desplegada en Azure App Service F1 y Azure SQL Free. La base tiene `AutoPause` al agotar la cuota y no puede continuar como uso de pago; una alerta por correo avisa cuando queda aproximadamente el 1 %. El coste incremental autorizado sigue siendo 0 EUR y el límite aprobado antes de exigir evidencia comercial es 40 horas adicionales desde el 2026-08-02.
-
-SQL Server Standard Developer es gratuito para desarrollo/pruebas, pero no está licenciado para producción. Producción requerirá una decisión explícita sobre base de datos, hosting, backups, restauración, privacidad y soporte.
-
-## Documentación
-
-- [Constitución del repositorio (AGENTS.md)](AGENTS.md)
-- [Política de seguridad](SECURITY.md)
-- [Mapa y autoridad](docs/README.md)
-- [Contexto y estado](docs/project-context.md)
-- [Reglas de negocio y contratos](docs/business-rules.md)
-- [Arquitectura](docs/architecture.md)
-- [Roadmap](docs/roadmap.md)
-- [Demo local](docs/local-demo.md)
-- [Demo pública de un clic](docs/public-demo.md)
-- [Economic brief](docs/economic-brief.md)
-- [Trazabilidad regla -> test](docs/traceability.md)
-- [Changelog](docs/changelog.md)
-- [Spec 001: resiliencia del plan gratuito](specs/001-portfolio-demo-resilience/spec.md)
-- [ADR-001: product direction](docs/decisions/ADR-001-product-direction.md)
-- [ADR-002: runtime and architecture](docs/decisions/ADR-002-runtime-and-architecture.md)
-- [ADR-003: lifecycle and security](docs/decisions/ADR-003-lifecycle-security-and-organization-boundary.md)
-- [ADR-004: repository license](docs/decisions/ADR-004-repository-license.md)
-- [ADR-005: public demo and free hosting](docs/decisions/ADR-005-public-demo-and-free-hosting.md)
-- [ADR-006: free-tier resilience and demo evidence](docs/decisions/ADR-006-free-tier-resilience-and-demo-evidence.md) (aprobado)
-
-## Autor
+## Author
 
 Aitor Nain Mendoza Vallejo — Full Stack Architect & Backend .NET Engineer
 

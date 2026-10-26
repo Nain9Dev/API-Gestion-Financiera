@@ -23,7 +23,7 @@
 | `T-113` | Verification gate: `dotnet build`, `dotnet format`, `dotnet test` with SQL Server, `npm run build`, `npm test` | `[A]` | All green and reported | Done (one pre-existing failure, see handoff) |
 | `T-114` | Update `docs/changelog.md`, `docs/traceability.md`, `docs/README.md`, `docs/architecture.md` | `[A]` | Documents reference spec 002 and ADR-007 | Done |
 | `T-115` | Approve or reject ADR-007 | `[H]` | ADR status updated by the owner | Pending |
-| `T-116` | Deploy the API with the new CORS origin (part of `T-019`) | `[M]` | Live run from `policy.naindev.com` shows `Live` | Pending |
+| `T-116` | Deploy the API with the new CORS origin (part of `T-019`) | `[M]` | Live run from `policy.naindev.com` shows `Live` | Done 2026-10-26: browser run showed `Live · SQL Server` |
 
 ## Session handoff
 

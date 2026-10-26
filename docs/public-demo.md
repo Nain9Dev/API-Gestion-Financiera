@@ -63,8 +63,27 @@ unmapped exception was reported as `internal_error`.
 ADR-006 records the fix: an explicit command timeout, best-effort cleanup, `503` with
 `Retry-After` for recognised transient conditions, and a page that probes readiness and retries.
 
-**Status: fixed in the repository, not yet deployed.** Until the change is released, the behaviour
-above is still reproducible in production.
+**Status: fixed and deployed on 2026-10-26.** See the redeploy evidence below.
+
+## Redeploy evidence, 2026-10-26
+
+Local gate before deploy: build 0 warnings, `dotnet format` clean, 22 + 25 + 26 tests passed, 0
+skipped, against a SQL Server 2022 container. Published build run locally: first run 0.41 s, then
+about 20 ms.
+
+Production after zip deploy:
+
+| Check | Result |
+|---|---|
+| `GET /health` | `200`, 0.44 s |
+| `GET /demo/` | `200`, 0.35 s |
+| `GET /health/ready` right after deploy | `200`, 99 s (Azure SQL Serverless resuming from `AutoPause`) |
+| `OPTIONS /api/v1/demo/run` from `https://policy.naindev.com` | `204` with `Access-Control-Allow-Origin` |
+| `POST /api/v1/demo/run`, three runs after the database woke | `200` in 1.23 s, 0.37 s, 0.28 s; server-side step times 3 to 16 ms |
+| Run from `https://policy.naindev.com` | Labelled `Live · SQL Server`, 87 ms server, 0.5 s wall |
+
+The residual slowness is the Azure SQL free-tier resume after idle (about 1 to 2 minutes), which
+the offer does not allow removing. The page probes readiness and retries (ADR-006).
 
 ## Public contract
 

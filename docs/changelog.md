@@ -7,6 +7,12 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
+## 0.11 — 2026-10-26 — Azure redeploy
+
+Deployed the current build to the existing App Service (`T-019`, `T-116`): ADR-006 resilience and
+the `policy.naindev.com` CORS origin are now live. No schema or setting change. Evidence in
+`docs/public-demo.md`.
+
 ## 0.10 — 2026-10-22 — Live architecture blueprint and honest execution source
 
 Governing decision: ADR-007 (`Proposed`), spec 002.

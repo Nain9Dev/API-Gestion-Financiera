@@ -7,6 +7,14 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
+## 0.14 — 2026-10-26 — Azure cost guard applied
+
+- Created the subscription budget `budget-nain-policy-1eur` (1 EUR a month; alerts at 50 % and 100 %
+  actual and 100 % forecast). It only notifies; the free offer's `AutoPause` and the F1 plan are the
+  real stop.
+- Azure rejected lowering the auto-pause delay to 15 min on the free database; it stays 60 min.
+  Evidence in `specs/005-intent-warmup-cost-guard/`.
+
 ## 0.13 — 2026-10-26 — Intent-based warm-up and free-quota guard
 
 Governing spec: 005 (`Proposed`); amends 004.

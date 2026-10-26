@@ -7,12 +7,15 @@ import LifecycleView from './views/LifecycleView.vue';
 import ConcurrencyLabView from './views/ConcurrencyLabView.vue';
 import AuditTrailView from './views/AuditTrailView.vue';
 import ResilienceProbeView from './views/ResilienceProbeView.vue';
+import { api } from './services/api';
 
 const activeTab = ref('scenario');
 const token = ref('');
 const isTokenModalOpen = ref(false);
 
 onMounted(() => {
+  // Wake the free-tier database while the visitor reads the page (spec 004).
+  void api.warmUp();
   const saved = localStorage.getItem('nainpolicy_dev_jwt');
   if (saved) {
     token.value = saved;

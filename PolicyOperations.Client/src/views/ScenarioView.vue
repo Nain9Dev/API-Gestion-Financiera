@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import ArchitectureBlueprint, { type BlueprintPhase } from '../components/ArchitectureBlueprint.vue';
-import { buildTimeline, IDLE_FRAME, type BlueprintFrame, type NodeId } from '../architecture/blueprintTimeline';
-import { api, ApiError } from '../services/api';
+import { buildTimeline, IDLE_FRAME, replayDelayMs, type BlueprintFrame, type NodeId } from '../architecture/blueprintTimeline';
+import { api, ApiError, type WarmState } from '../services/api';
 import type { ScenarioRun } from '../types/contracts';
 
 const phase = ref<BlueprintPhase>('idle');
@@ -13,13 +13,13 @@ const errorMessage = ref<string | null>(null);
 const elapsedMs = ref(0);
 const showJson = ref(false);
 
+const warmState = ref<WarmState | null>(api.getWarmState());
+const stopWarmListener = api.onWarmState((state) => (warmState.value = state));
+
 const reducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
 let elapsedTimer: number | null = null;
 let replayTimers: number[] = [];
-
-const STEP_MS = 1150;
-const STEP_MS_REDUCED = 250;
 
 onMounted(() => {
   motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -28,6 +28,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  stopWarmListener();
   motionQuery?.removeEventListener('change', onMotionChange);
   stopElapsed();
   clearReplay();
@@ -105,7 +106,6 @@ async function handleRun() {
 
 function replay() {
   phase.value = 'replaying';
-  const stepMs = reducedMotion.value ? STEP_MS_REDUCED : STEP_MS;
   frames.value.forEach((_, i) => {
     replayTimers.push(
       window.setTimeout(() => {
@@ -113,7 +113,7 @@ function replay() {
         if (i === frames.value.length - 1) {
           phase.value = 'done';
         }
-      }, i * stepMs)
+      }, replayDelayMs(i, reducedMotion.value))
     );
   });
 }
@@ -158,6 +158,16 @@ function statusClass(frame: BlueprintFrame) {
         <template v-if="phase === 'waiting'">{{ elapsedLabel }}</template>
         <template v-else-if="run">{{ run.response.totalDurationMs }} ms server · {{ elapsedLabel }} wall</template>
         <template v-else>POST /api/v1/demo/run · 5 steps · no sign-up</template>
+      </span>
+
+      <span
+        v-if="warmState === 'pending' || warmState === 'ready'"
+        :class="['warm', `warm-${warmState}`]"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="source-dot" aria-hidden="true"></span>
+        {{ warmState === 'pending' ? 'Waking free-tier database' : 'Database ready' }}
       </span>
 
       <span v-if="run" :class="['source', `source-${run.source}`]" :title="run.source === 'live' ? 'Response from the API and SQL Server' : 'In-browser fallback: the API was unreachable'">
@@ -270,6 +280,38 @@ function statusClass(frame: BlueprintFrame) {
   color: #ffd27a;
   border-color: rgba(255, 176, 32, 0.5);
   background: rgba(255, 176, 32, 0.08);
+}
+
+.warm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.warm-pending .source-dot {
+  background: #ffd27a;
+  animation: warm-pulse 1.2s ease-in-out infinite;
+}
+
+.warm-ready {
+  color: var(--brand-green);
+}
+
+@keyframes warm-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warm-pending .source-dot {
+    animation: none;
+  }
 }
 
 .run-id {

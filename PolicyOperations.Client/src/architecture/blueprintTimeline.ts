@@ -95,6 +95,19 @@ function labelFor(operation: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/** Longest CSS transition of a lit layer in `ArchitectureBlueprint.vue` (0.3 s). */
+export const VISUAL_TRANSITION_MS = 300;
+
+/** Pause between frames; five frames then finish in 1.5 s with the last transition (spec 004). */
+const STEP_MS = 300;
+/** Reduced motion skips packet animation, so it never needs a longer pause than full motion. */
+const STEP_MS_REDUCED = 250;
+
+/** Milliseconds after the result arrives at which frame `index` (0-based) becomes current. */
+export function replayDelayMs(index: number, reducedMotion: boolean): number {
+  return index * (reducedMotion ? STEP_MS_REDUCED : STEP_MS);
+}
+
 export function buildTimeline(steps: ReadonlyArray<PublicDemoStepResponse>): BlueprintFrame[] {
   const frames: BlueprintFrame[] = [];
   let domainState: DomainState = IDLE_FRAME.domainState;

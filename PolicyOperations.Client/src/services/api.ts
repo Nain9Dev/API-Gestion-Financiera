@@ -38,7 +38,62 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
+/** Longest a visitor waits for a live run before the in-browser result is shown (spec 004). */
+const RUN_TIMEOUT_MS = 6_000;
+/** The free-tier database can need up to two minutes to resume (spec 004). */
+const WARM_UP_TIMEOUT_MS = 120_000;
+
+export type WarmState = 'pending' | 'ready' | 'unavailable';
+
+let warmState: WarmState | null = null;
+let warmPromise: Promise<'ready' | 'unavailable'> | null = null;
+const warmListeners = new Set<(state: WarmState) => void>();
+
+function setWarmState(state: WarmState) {
+  warmState = state;
+  warmListeners.forEach((listener) => listener(state));
+}
+
+/** `fetch` that aborts after `timeoutMs`; the timer is cleared as soon as the call settles. */
+async function fetchWithin(timeoutMs: number, input: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const api = {
+  /**
+   * Wakes the free-tier database as soon as the client loads. Sent once per page load; it never
+   * substitutes a simulated health result, so `ready` always means the API answered 200.
+   */
+  warmUp(): Promise<'ready' | 'unavailable'> {
+    if (!warmPromise) {
+      setWarmState('pending');
+      warmPromise = fetchWithin(WARM_UP_TIMEOUT_MS, `${BASE_URL}/health/ready`, { cache: 'no-store' })
+        .then((res) => (res.ok ? ('ready' as const) : ('unavailable' as const)))
+        .catch(() => 'unavailable' as const)
+        .then((result) => {
+          setWarmState(result);
+          return result;
+        });
+    }
+    return warmPromise;
+  },
+
+  getWarmState(): WarmState | null {
+    return warmState;
+  },
+
+  /** Subscribes to warm-up changes; returns the unsubscribe function. */
+  onWarmState(listener: (state: WarmState) => void): () => void {
+    warmListeners.add(listener);
+    return () => warmListeners.delete(listener);
+  },
+
   /**
    * Runs the fixed five-step scenario against the configured API and says where the result came
    * from. When the API is unreachable or answers with an error, the in-browser engine produces the
@@ -47,7 +102,7 @@ export const api = {
   async runScenario(): Promise<ScenarioRun> {
     const started = now();
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/demo/run`, {
+      const res = await fetchWithin(RUN_TIMEOUT_MS, `${BASE_URL}/api/v1/demo/run`, {
         method: 'POST',
         headers: { Accept: 'application/json' },
       });
@@ -58,7 +113,7 @@ export const api = {
         return { source: 'live', response, elapsedMs: Math.round(now() - started) };
       }
     } catch {
-      // Backend unreachable: fall through to the in-browser engine.
+      // Backend unreachable or slower than RUN_TIMEOUT_MS: fall through to the in-browser engine.
     }
 
     const response = await mockPolicyEngine.runPublicDemo();

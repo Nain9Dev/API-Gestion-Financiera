@@ -17,7 +17,16 @@ Why it matters: the free offer gives 100,000 vCore-seconds per month. With a 60 
 is estimated at about 1,800 vCore-seconds (about 55 wakes a month); with 15 min, about 450 (about
 220 wakes). These figures are estimates, not measurements.
 
-## Step 1 — Lower the auto-pause delay `[H]`
+## Outcome, 2026-10-26
+
+- Step 1 was attempted with the owner's authorization and **rejected by Azure**:
+  `ProvisioningDisabled: Only default value for auto pause delay is allowed for Free Limit database
+  with auto pause exhaustion behavior`. The delay remains 60 min; nothing changed.
+- Step 2 was done with the owner's authorization through the Consumption budgets API
+  (`budget-nain-policy-1eur`), with the Azure account e-mail as recipient, and read back with
+  current spend 0.0.
+
+## Step 1 — Lower the auto-pause delay `[H]` (not possible on this offer)
 
 ```bash
 az sql db update -g rg-nain-policy-demo -s sql-nain-policy-demo -n PolicyOperationsDemo --auto-pause-delay 15

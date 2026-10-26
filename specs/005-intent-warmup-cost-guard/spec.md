@@ -83,5 +83,6 @@ Notation: EARS ("When X, the system shall Y").
 
 ## Open questions
 
-- Whether the free offer allows a 15 min auto-pause delay is not verified; the runbook says what to
-  do if Azure rejects it.
+- Resolved 2026-10-26: Azure rejects a 15 min auto-pause delay on this free database
+  (`ProvisioningDisabled`). The delay stays 60 min, so `REQ-147` keeps only the budget step; the
+  cost per wake is not reduced and intent-based warm-up is the only mitigation.

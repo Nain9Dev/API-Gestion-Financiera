@@ -13,8 +13,8 @@
 | `T-503` | Adapt the spec 004 tests that assumed the demo request was the first call | `[A]` | `api.test.ts` green | Done |
 | `T-504` | Browser check against Azure | `[A]` | No request before intent; live run about 1 s warm; simulated at about 1.6 s on a paused database | Done |
 | `T-505` | Write the Azure cost-guard runbook | `[A]` | File exists, commands verified against `az --help` | Done |
-| `T-506` | Lower the auto-pause delay to 15 min | `[H]` | `az sql db show` returns `autoPauseDelay` 15 | Pending |
-| `T-507` | Create the 1 EUR monthly budget with e-mail alerts | `[H]` | Budget visible in Cost Management | Pending |
+| `T-506` | Lower the auto-pause delay to 15 min | `[H]` | `az sql db show` returns `autoPauseDelay` 15 | Rejected by Azure 2026-10-26 (`ProvisioningDisabled`: only the default delay is allowed on a free database with `AutoPause` exhaustion); delay stays 60 |
+| `T-507` | Create the 1 EUR monthly budget with e-mail alerts | `[H]` | Budget visible in Cost Management | Done 2026-10-26 with owner authorization: `budget-nain-policy-1eur`, subscription scope, monthly, 1 EUR, actual 50 % and 100 % plus forecast 100 %, recipient the Azure account e-mail; read back with current spend 0.0 |
 | `T-508` | Approve spec 005 and merge | `[H]` | Owner approves; Pages redeploys | Pending |
 
 ## Session handoff
@@ -29,5 +29,6 @@
 - **Not verified:** the pointer signal was delivered in the first pass only (in the second the pane
   was not drawn, so that run started the wake-up itself, `REQ-142`). Touch, key and scroll are
   covered by unit tests only; real-device behaviour is not checked.
-- **Next:** `T-506`, `T-507`, `T-508`.
+- **Next:** `T-508`. The 15 min delay is not available; the estimate of about 55 wakes a month
+  (60 min delay) stands, which is why the wake-up is intent-based.
 - **Blocked:** the three tasks above need the owner.

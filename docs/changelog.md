@@ -7,6 +7,20 @@
 Relevant behavioural changes, newest first. Dates are the date the change was made, not released.
 A change is listed only when it alters behaviour, contracts, evidence or operating boundaries.
 
+## 0.13 — 2026-10-26 — Intent-based warm-up and free-quota guard
+
+Governing spec: 005 (`Proposed`); amends 004.
+
+- The client no longer contacts the API on load. The wake-up starts on the first pointer, touch,
+  key or scroll signal, or when the visitor runs the scenario, so crawlers do not spend the free
+  vCore-seconds.
+- While the wake-up is pending, a run waits at most 0.8 s and otherwise answers `Simulated` without
+  a demo request; with the database awake, the demo request has a 2 s limit (was 6 s).
+- The blueprint replay steps every 0.2 s: about 1 s from click to last frame on a warm database
+  (0.97 to 0.98 s measured against Azure).
+- Added `azure-cost-guard-runbook.md` with the owner steps for a 15 min auto-pause delay and a 1 EUR
+  budget. Not executed by the agent.
+
 ## 0.12 — 2026-10-26 — Prewarm the live demo
 
 Governing spec: 004 (`Proposed`).

@@ -110,7 +110,7 @@ describe('api.warmUp (spec 004)', () => {
   });
 });
 
-describe('api.runScenario time limit (spec 004)', () => {
+describe('api.runScenario policy (spec 005)', () => {
   const fetchMock = vi.fn<typeof fetch>();
 
   beforeEach(() => {
@@ -124,52 +124,96 @@ describe('api.runScenario time limit (spec 004)', () => {
     vi.unstubAllEnvs();
   });
 
-  it('aborts after 6 s and answers with a run labelled simulated (REQ-134)', async () => {
+  const demoCalls = () =>
+    fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/api/v1/demo/run'));
+
+  it('aborts the demo request after 2 s and answers simulated (REQ-144)', async () => {
     vi.useFakeTimers();
     fetchMock.mockImplementation(hangingFetch());
     const { api } = await loadApi();
 
     const pending = api.runScenario();
-    await vi.advanceTimersByTimeAsync(6_000);
+    await vi.advanceTimersByTimeAsync(2_000);
     const run = await pending;
 
     expect(run.source).toBe('simulated');
   });
 
-  it('keeps waiting while the answer is still inside the limit (REQ-134)', async () => {
+  it('keeps waiting while the demo answer is inside the 2 s limit (REQ-144)', async () => {
     vi.useFakeTimers();
     let release!: (r: Response) => void;
-    fetchMock.mockImplementation(
-      () => new Promise<Response>((resolve) => (release = resolve))
-    );
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => (release = resolve)));
     const { api } = await loadApi();
+    // Warm-up already settled, so the run sends the demo request directly.
+    fetchMock.mockResolvedValueOnce(new Response('Healthy', { status: 200 }));
+    await api.warmUp();
 
     const pending = api.runScenario();
-    await vi.advanceTimersByTimeAsync(5_900);
+    await vi.advanceTimersByTimeAsync(1_900);
     release(new Response(JSON.stringify(demoOk), { status: 200 }));
-    const run = await pending;
 
-    expect(run.source).toBe('live');
+    expect((await pending).source).toBe('live');
   });
 
-  it('labels a fast answer live (REQ-135)', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(demoOk), { status: 200 }));
+  it('labels a fast answer live (REQ-145)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('Healthy', { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(demoOk), { status: 200 }));
     const { api } = await loadApi();
 
     expect((await api.runScenario()).source).toBe('live');
   });
 
-  it('does not wait for a pending wake-up before running (REQ-136)', async () => {
-    vi.useFakeTimers();
+  it('starts the wake-up as part of a run that had no earlier intent (REQ-142)', async () => {
     fetchMock
-      .mockImplementationOnce(hangingFetch()) // warm-up stays pending
+      .mockResolvedValueOnce(new Response('Healthy', { status: 200 })) // /health/ready
       .mockResolvedValueOnce(new Response(JSON.stringify(demoOk), { status: 200 })); // run
     const { api } = await loadApi();
 
-    void api.warmUp();
-    const run = await api.runScenario();
+    await api.runScenario();
 
-    expect(run.source).toBe('live');
-    expect(fetchMock.mock.calls[1][0]).toBe('https://api.example.test/api/v1/demo/run');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/health/ready');
+    expect(api.getWarmState()).toBe('ready');
+  });
+
+  it('runs live when the pending wake-up becomes ready within 0.8 s (REQ-143)', async () => {
+    vi.useFakeTimers();
+    let ready!: (r: Response) => void;
+    fetchMock
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (ready = resolve)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(demoOk), { status: 200 }));
+    const { api } = await loadApi();
+    void api.warmUp();
+
+    const pending = api.runScenario();
+    await vi.advanceTimersByTimeAsync(300);
+    ready(new Response('Healthy', { status: 200 }));
+
+    expect((await pending).source).toBe('live');
+    expect(demoCalls()).toHaveLength(1);
+  });
+
+  it('answers simulated without sending the demo request when the wake-up is still pending after 0.8 s (REQ-143)', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(hangingFetch());
+    const { api } = await loadApi();
+    void api.warmUp();
+
+    const pending = api.runScenario();
+    await vi.advanceTimersByTimeAsync(800);
+    const run = await pending;
+
+    expect(run.source).toBe('simulated');
+    expect(demoCalls()).toHaveLength(0);
+  });
+
+  it('still tries the demo request when the wake-up was unavailable (REQ-144)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('{}', { status: 503 })) // wake-up
+      .mockResolvedValueOnce(new Response(JSON.stringify(demoOk), { status: 200 })); // run
+    const { api } = await loadApi();
+    await api.warmUp();
+
+    expect((await api.runScenario()).source).toBe('live');
   });
 });

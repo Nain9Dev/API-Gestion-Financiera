@@ -66,7 +66,11 @@ describe('api.runScenario', () => {
     vi.unstubAllEnvs();
   });
 
+  // A run starts the wake-up first when no earlier intent did (spec 005, REQ-142).
+  const wakeUpOk = () => fetchMock.mockResolvedValueOnce(new Response('Healthy', { status: 200 }));
+
   it('labels a 200 from the configured API as live and passes the response through unchanged (REQ-110)', async () => {
+    wakeUpOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(liveResponse));
     const { api } = await loadApi('https://api.example.test');
 
@@ -78,13 +82,15 @@ describe('api.runScenario', () => {
   });
 
   it('prefixes the request with VITE_API_BASE_URL when it is configured (REQ-111)', async () => {
+    wakeUpOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(liveResponse));
     const { api } = await loadApi('https://api.example.test');
 
     await api.runScenario();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/api/v1/demo/run');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/health/ready');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.example.test/api/v1/demo/run');
   });
 
   it('derives the OpenAPI explorer link from the same base URL (REQ-111)', async () => {
@@ -96,12 +102,14 @@ describe('api.runScenario', () => {
   });
 
   it('keeps same-origin paths when VITE_API_BASE_URL is absent (REQ-111)', async () => {
+    wakeUpOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(liveResponse));
     const { api } = await loadApi(undefined);
 
     await api.runScenario();
 
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/demo/run');
+    expect(fetchMock.mock.calls[0][0]).toBe('/health/ready');
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/demo/run');
   });
 
   it('labels the in-browser fallback as simulated when the network fails (REQ-110)', async () => {
@@ -125,6 +133,7 @@ describe('api.runScenario', () => {
   });
 
   it('keeps runPublicDemo as a thin alias returning only the response', async () => {
+    wakeUpOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(liveResponse));
     const { api } = await loadApi('https://api.example.test');
 
